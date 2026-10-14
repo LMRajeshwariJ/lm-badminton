@@ -2,6 +2,11 @@
 
 Office badminton tournament site for mixed doubles and women's singles. The default participants and draw are configured in `src/data`. Match progress and admin changes are shared through Supabase when configured; without Supabase the public draw remains readable, but protected writes are disabled.
 
+## Guides
+
+- [User guide](docs/USER_GUIDE.md)
+- [Developer guide](docs/DEVELOPER_GUIDE.md)
+
 ## Local development
 
 Requirements: Node.js 22 or newer.
