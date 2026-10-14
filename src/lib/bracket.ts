@@ -113,6 +113,78 @@ export interface ScoreAdvancement {
   previousId: string | null;
 }
 
+export function reconcileSinglesProgression(matches: Match[], byes: ByeAssignment[]) {
+  let nextMatches = matches;
+  let nextByes = byes;
+  const get = (id: string) => nextMatches.find((match) => match.id === id);
+  const singlesByes = () => nextByes.filter((bye) => bye.category === "womens-singles");
+
+  const opening = ["WS-M1", "WS-M2", "WS-M3", "WS-M4"].map(get);
+  if (opening.every((match) => match?.status === "completed" && match.winnerId) && !nextByes.some((bye) => bye.id === "WS-BYE-ROUND2")) {
+    const winners = opening.map((match) => match!.winnerId!);
+    const eligible = winners.filter((id) => !singlesByes().some((bye) => bye.teamId === id));
+    const byeRecipient = randomItem(eligible);
+    if (byeRecipient) {
+      const playing = winners.filter((id) => id !== byeRecipient);
+      nextMatches = nextMatches.map((match) => {
+        if (match.id === "WS-M5") return { ...match, homeId: playing[0], awayId: playing[1] };
+        if (match.id === "WS-M6") return { ...match, homeId: playing[2], awayId: "WS09" };
+        if (match.id === "WS-SF") return { ...match, homeId: byeRecipient };
+        return match;
+      });
+      nextByes = [...nextByes, {
+        id: "WS-BYE-ROUND2",
+        category: "womens-singles",
+        teamId: byeRecipient,
+        skippedRound: "quarterfinal",
+        intoMatchId: "WS-SF",
+        slot: "home",
+      }];
+    }
+  }
+
+  const roundTwo = [getAfter(nextMatches, "WS-M5"), getAfter(nextMatches, "WS-M6")];
+  if (roundTwo.every((match) => match?.status === "completed" && match.winnerId) && !nextByes.some((bye) => bye.id === "WS-BYE-FINAL")) {
+    const winners = roundTwo.map((match) => match!.winnerId!);
+    const eligible = winners.filter((id) => !nextByes.some((bye) => bye.category === "womens-singles" && bye.teamId === id));
+    const byeRecipient = randomItem(eligible);
+    if (byeRecipient) {
+      const semifinalist = winners.find((id) => id !== byeRecipient)!;
+      nextMatches = nextMatches.map((match) => {
+        if (match.id === "WS-SF") return { ...match, awayId: semifinalist };
+        if (match.id === "WS-F") return { ...match, homeId: byeRecipient };
+        return match;
+      });
+      nextByes = [...nextByes, {
+        id: "WS-BYE-FINAL",
+        category: "womens-singles",
+        teamId: byeRecipient,
+        skippedRound: "semifinal",
+        intoMatchId: "WS-F",
+        slot: "home",
+      }];
+    }
+  }
+
+  return { matches: nextMatches, byes: nextByes };
+}
+
+function getAfter(matches: Match[], id: string) {
+  return matches.find((match) => match.id === id);
+}
+
+function randomItem<T>(items: T[]) {
+  if (!items.length) return undefined;
+  const ceiling = Math.floor(0x100000000 / items.length) * items.length;
+  let value = 0;
+  do {
+    const bytes = new Uint32Array(1);
+    crypto.getRandomValues(bytes);
+    value = bytes[0];
+  } while (value >= ceiling);
+  return items[value % items.length];
+}
+
 export function revertAdvancement(matches: Match[], advancement: ScoreAdvancement | null, winnerId: string | null) {
   if (!advancement) return matches;
   return matches.map((match) => {
@@ -140,8 +212,9 @@ export function validateCategory(
   if (field.length !== meta.fieldSize) {
     issues.push(`${meta.label} should have ${meta.fieldSize} entries, found ${field.length}.`);
   }
-  if (categoryByes.length !== meta.byeCount) {
-    issues.push(`${meta.label} should have ${meta.byeCount} byes, found ${categoryByes.length}.`);
+  const expectedByeCount = category === "womens-singles" ? expectedSinglesByes(draw) : meta.byeCount;
+  if (categoryByes.length !== expectedByeCount) {
+    issues.push(`${meta.label} should currently have ${expectedByeCount} bye assignments, found ${categoryByes.length}.`);
   }
 
   const expected = expectedCounts(category);
@@ -293,12 +366,18 @@ function expectedCounts(category: CategoryId): Record<RoundId, number> {
     };
   }
   return {
-    preliminary: 1,
+    preliminary: 4,
     "round-of-16": 0,
-    quarterfinal: 4,
-    semifinal: 2,
+    quarterfinal: 2,
+    semifinal: 1,
     final: 1,
   };
+}
+
+function expectedSinglesByes(draw: Match[]) {
+  const openingComplete = ["WS-M1", "WS-M2", "WS-M3", "WS-M4"].every((id) => draw.find((match) => match.id === id)?.status === "completed");
+  const roundTwoComplete = ["WS-M5", "WS-M6"].every((id) => draw.find((match) => match.id === id)?.status === "completed");
+  return roundTwoComplete ? 3 : openingComplete ? 2 : 1;
 }
 
 function buildMixedDraw(byeTeams: Team[], playIn: Team[]): GeneratedDraw {

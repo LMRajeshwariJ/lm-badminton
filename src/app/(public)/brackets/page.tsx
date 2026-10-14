@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BracketView } from "@/components/bracket/bracket-view";
 
 export const metadata: Metadata = {
-  title: "Brackets",
+  title: "Draw & fixtures",
 };
 
 export default function Page() {

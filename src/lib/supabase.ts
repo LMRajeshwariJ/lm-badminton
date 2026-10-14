@@ -1,8 +1,10 @@
-import type { Match } from "@/types";
+import type { AppState, Match, TournamentConfigState } from "@/types";
 
 const SESSION_KEY = "lm-badminton-umpire-session";
 const LEASES_KEY = "lm-badminton-active-leases";
 const REVISION_KEY = "lm-badminton-match-revisions";
+const ADMIN_SESSION_KEY = "lm-badminton-admin-session";
+const CONFIG_REVISION_KEY = "lm-badminton-config-revision";
 
 export interface UmpireSession {
   token: string;
@@ -10,9 +12,18 @@ export interface UmpireSession {
   expiresAt: number;
 }
 
+export interface AdminSession extends UmpireSession {
+  role: "admin";
+}
+
 export interface RemoteMatch {
   match_id: string;
   state: Match;
+  revision: number;
+}
+
+export interface RemoteTournamentConfig {
+  state: TournamentConfigState;
   revision: number;
 }
 
@@ -52,6 +63,24 @@ export function clearUmpireSession() {
   sessionStorage.removeItem(LEASES_KEY);
 }
 
+export function readAdminSession(): AdminSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const session = JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY) ?? "null") as AdminSession | null;
+    if (!session?.token || session.expiresAt <= Date.now() || session.role !== "admin") {
+      clearAdminSession();
+      return null;
+    }
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+export function clearAdminSession() {
+  if (typeof window !== "undefined") sessionStorage.removeItem(ADMIN_SESSION_KEY);
+}
+
 export function getControllerId() {
   if (typeof window === "undefined") return null;
   const session = readUmpireSession();
@@ -59,8 +88,48 @@ export function getControllerId() {
 }
 
 export async function verifyUmpireCode(code: string) {
-  const result = await callFunction<{ token: string; umpireId: string; expiresAt: number }>("verify", { code });
+  const result = await callFunction<{ token: string; umpireId: string; expiresAt: number }>("verify", { code, access: "umpire" });
   saveUmpireSession(result);
+  return result;
+}
+
+export async function verifyAdminCode(code: string) {
+  const result = await callFunction<AdminSession>("verify", { code, access: "admin" });
+  sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(result));
+  return result;
+}
+
+export async function fetchRemoteConfig(): Promise<RemoteTournamentConfig | null> {
+  const config = supabaseConfig();
+  if (!config) return null;
+  const response = await fetch(`${config.url}/rest/v1/tournament_config?id=eq.main&select=state,revision`, {
+    headers: { apikey: config.anonKey, Authorization: `Bearer ${config.anonKey}` },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Could not load tournament settings (${response.status}).`);
+  const rows = await response.json() as { state: TournamentConfigState; revision: number }[];
+  if (!rows[0]) return null;
+  localStorage.setItem(CONFIG_REVISION_KEY, String(rows[0].revision));
+  return rows[0];
+}
+
+export async function writeRemoteAdminState(previous: AppState, next: AppState) {
+  const session = readAdminSession();
+  if (!session) throw new Error("Your admin session expired. Re-enter the admin password.");
+  const changed = next.matches.filter((match) => JSON.stringify(previous.matches.find((item) => item.id === match.id)) !== JSON.stringify(match));
+  const state: TournamentConfigState = {
+    tournament: next.tournament,
+    players: next.players,
+    teams: next.teams,
+    courts: next.courts,
+    byes: next.byes,
+  };
+  const result = await callFunction<{ matches: RemoteMatch[]; configRevision: number }>("admin-write", {
+    config: { expectedRevision: Number(localStorage.getItem(CONFIG_REVISION_KEY) ?? 0), state },
+    updates: changed.map((match) => ({ matchId: match.id, expectedRevision: getMatchRevision(match.id), state: match })),
+  }, session.token);
+  result.matches?.forEach(rememberRemoteMatch);
+  localStorage.setItem(CONFIG_REVISION_KEY, String(result.configRevision));
   return result;
 }
 
@@ -152,7 +221,7 @@ export async function writeRemoteMatches(controllerMatchId: string, matches: Mat
   return result;
 }
 
-export function subscribeToRemoteMatches(onRows: (rows: RemoteMatch[]) => void, onStatus: (connected: boolean) => void) {
+export function subscribeToRemoteMatches(onRows: (rows: RemoteMatch[]) => void, onStatus: (connected: boolean) => void, onConfig?: (config: RemoteTournamentConfig) => void) {
   const config = supabaseConfig();
   if (!config || typeof WebSocket === "undefined") return () => {};
   let socket: WebSocket | null = null;
@@ -189,6 +258,15 @@ export function subscribeToRemoteMatches(onRows: (rows: RemoteMatch[]) => void, 
         },
         access_token: config.anonKey,
       }]));
+      socket?.send(JSON.stringify([String(++ref), String(ref), "realtime:public:tournament_config", "phx_join", {
+        config: {
+          broadcast: { ack: false, self: false },
+          presence: { enabled: false, key: "" },
+          postgres_changes: [{ event: "*", filter: "id=eq.main", schema: "public", table: "tournament_config" }],
+          private: false,
+        },
+        access_token: config.anonKey,
+      }]));
       heartbeat = setInterval(() => {
         if (socket?.readyState === WebSocket.OPEN) {
           const heartbeatRef = String(++ref);
@@ -199,7 +277,17 @@ export function subscribeToRemoteMatches(onRows: (rows: RemoteMatch[]) => void, 
     socket.onmessage = (message) => {
       try {
         const packet = JSON.parse(String(message.data)) as unknown[];
+        const topic = String(packet[2] ?? "");
         const payload = packet[4] as { data?: { record?: RemoteMatch; type?: string }; record?: RemoteMatch } | undefined;
+        if (topic === "realtime:public:tournament_config") {
+          const configPayload = packet[4] as { data?: { record?: { id?: string; state?: TournamentConfigState; revision?: number } }; record?: { id?: string; state?: TournamentConfigState; revision?: number } } | undefined;
+          const record = configPayload?.data?.record ?? configPayload?.record;
+          if (record?.id === "main" && record.state && Number.isFinite(record.revision)) {
+            localStorage.setItem(CONFIG_REVISION_KEY, String(record.revision));
+            onConfig?.({ state: record.state, revision: record.revision! });
+          }
+          return;
+        }
         if (packet[3] === "phx_reply" && packet[2] === "realtime:public:match_states") {
           const joined = (payload as { status?: string } | undefined)?.status === "ok";
           onStatus(joined);

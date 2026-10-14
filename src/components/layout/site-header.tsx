@@ -5,18 +5,20 @@ import { usePathname } from "next/navigation";
 import { RoleSwitcher } from "@/components/layout/role-switcher";
 import { ShuttleIcon } from "@/components/common/shuttle";
 import { cn } from "@/lib/utils";
+import { useTournament } from "@/context/tournament-context";
 
 const links = [
   { href: "/", label: "Home" },
   { href: "/live", label: "Live" },
-  { href: "/fixtures", label: "Fixtures" },
-  { href: "/brackets", label: "Brackets" },
+  { href: "/brackets", label: "Draw" },
   { href: "/standings", label: "Standings" },
   { href: "/teams", label: "Teams" },
 ];
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const { state } = useTournament();
+  const visibleLinks = state.role === "admin" ? [...links, { href: "/admin", label: "Manage" }] : links;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-background/80 backdrop-blur-xl">
@@ -26,7 +28,7 @@ export function SiteHeader() {
           LM-Badminton
         </Link>
         <nav className="ml-4 hidden items-center gap-1 lg:flex" aria-label="Tournament">
-          {links.map((link) => {
+          {visibleLinks.map((link) => {
             const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
             return (
               <Link

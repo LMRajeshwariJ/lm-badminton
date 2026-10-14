@@ -8,7 +8,7 @@ import { useTournament } from "@/context/tournament-context";
 const roleCopy = {
   audience: null,
   umpire: "Umpire mode is active. Open the Umpire desk to score matches.",
-  admin: "Demo role: Admin. You can browse every public page. Tournament management tools are the next phase.",
+  admin: "Admin mode is active. Open Manage to update the draw or reset matches.",
 } as const;
 
 export function PublicShell({ children }: { children: React.ReactNode }) {

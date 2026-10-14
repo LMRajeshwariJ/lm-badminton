@@ -61,7 +61,7 @@ export function MatchCard({
             {game.home}–{game.away}
           </span>
         ))}
-        {match.status === "upcoming" ? <span>Opens on the fixtures board</span> : null}
+        {match.status === "upcoming" ? <span>Listed in the tournament draw</span> : null}
       </div>
     </Link>
   );

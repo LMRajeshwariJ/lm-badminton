@@ -32,7 +32,7 @@ export function sideTeamId(match: Match, side: Side) {
 }
 
 export function sideName(match: Match, side: Side, teams: Team[]) {
-  return getTeam(teams, sideTeamId(match, side))?.name ?? "To be decided";
+  return getTeam(teams, sideTeamId(match, side))?.name ?? (side === "home" ? match.homePlaceholder : match.awayPlaceholder) ?? "To be decided";
 }
 
 export function formatTournamentDates(start: string, end: string) {

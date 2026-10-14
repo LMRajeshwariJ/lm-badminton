@@ -80,6 +80,8 @@ export interface Match {
   status: MatchStatus;
   homeId: string | null;
   awayId: string | null;
+  homePlaceholder?: string;
+  awayPlaceholder?: string;
   courtId: string | null;
   scheduledAt: string | null;
   pointsPerGame: number;
@@ -98,6 +100,14 @@ export interface Match {
   paused: boolean;
   timeline: TimelineEvent[];
   history: ScoreHistoryEntry[];
+}
+
+export interface TournamentConfigState {
+  tournament: Tournament;
+  players: Player[];
+  teams: Team[];
+  courts: Court[];
+  byes: ByeAssignment[];
 }
 
 export interface ByeAssignment {

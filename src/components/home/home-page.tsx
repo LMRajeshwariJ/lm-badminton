@@ -64,7 +64,7 @@ export function HomePage() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link href="/brackets">View brackets</Link>
+                <Link href="/brackets">View draw</Link>
               </Button>
             </div>
           </motion.div>
@@ -112,7 +112,7 @@ export function HomePage() {
 
       <section className="mx-auto mt-12 grid max-w-7xl gap-8 px-4 lg:grid-cols-2">
         <div>
-          <SectionTitle eyebrow="Up next" title="Upcoming fixtures" href="/fixtures" action="Full order of play" />
+          <SectionTitle eyebrow="Up next" title="Upcoming matches" href="/brackets" action="Open draw" />
           <div className="mt-4 space-y-3">
             {upcoming.map((match) => (
               <Link key={match.id} href={`/live/${match.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3 hover:border-white/20">
@@ -128,7 +128,7 @@ export function HomePage() {
           </div>
         </div>
         <div>
-          <SectionTitle eyebrow="Results" title="Recent results" href="/fixtures" action="All results" />
+          <SectionTitle eyebrow="Results" title="Recent results" href="/brackets" action="Open draw" />
           <div className="mt-4 grid gap-3">
             {recent.map((match) => (
               <MatchCard key={match.id} match={match} teams={state.teams} players={state.players} courtName={state.courts.find((court) => court.id === match.courtId)?.name} />

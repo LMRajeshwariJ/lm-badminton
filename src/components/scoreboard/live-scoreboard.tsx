@@ -17,7 +17,7 @@ export function LiveScoreboard({ matchId }: { matchId: string }) {
   if (!match) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16">
-        <EmptyState title="That match is not on the board" body="It may have been cleared with a demo reset. Head back to the live matches." />
+        <EmptyState title="That match is not on the board" body="It may have been reset or removed. Head back to the live matches." />
         <Link href="/live" className="mt-6 inline-flex text-sm font-semibold text-accent">
           Back to live matches
         </Link>

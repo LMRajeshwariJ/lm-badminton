@@ -14,7 +14,7 @@ export function LiveIndex() {
       <header className="max-w-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Happening now</p>
         <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Live matches</h1>
-        <p className="mt-3 text-muted">{hasSupabaseConfig() ? "Scores update live across connected browsers and devices." : "This demo uses browser-local data until Supabase is configured."}</p>
+        <p className="mt-3 text-muted">{hasSupabaseConfig() ? "Scores update live across connected browsers and devices." : "Shared scores are unavailable until Supabase is configured."}</p>
       </header>
       {hasSupabaseConfig() && (!syncConnected || syncError) ? (
         <p role="status" className="mt-5 rounded-2xl border border-sky/20 bg-sky/10 px-4 py-3 text-sm text-sky">

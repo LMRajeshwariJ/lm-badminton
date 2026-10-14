@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, House, Medal, Radio, Trophy, Users } from "lucide-react";
+import { House, Medal, Radio, Trophy, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -8,8 +8,7 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/", label: "Home", icon: House },
   { href: "/live", label: "Live", icon: Radio },
-  { href: "/fixtures", label: "Fixtures", icon: CalendarDays },
-  { href: "/brackets", label: "Bracket", icon: Trophy },
+  { href: "/brackets", label: "Draw", icon: Trophy },
   { href: "/standings", label: "Board", icon: Medal },
   { href: "/teams", label: "Teams", icon: Users },
 ];
@@ -22,7 +21,7 @@ export function MobileNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-background/95 backdrop-blur-xl lg:hidden"
       aria-label="Mobile"
     >
-      <ul className="grid grid-cols-6">
+      <ul className="grid grid-cols-5">
         {items.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;

@@ -1,7 +1,7 @@
 import type { CategoryId, RoundId } from "@/types";
 
-export const SCHEMA_VERSION = 2;
-export const STORAGE_KEY = "lm-badminton-v2";
+export const SCHEMA_VERSION = 3;
+export const STORAGE_KEY = "lm-badminton-v3";
 
 export const CATEGORY_META: Record<
   CategoryId,
@@ -34,7 +34,7 @@ export const CATEGORY_META: Record<
     bestOf: 3,
     entryNoun: "players",
     fieldSize: 9,
-    byeCount: 7,
+    byeCount: 3,
   },
 };
 

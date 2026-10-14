@@ -1,5 +1,5 @@
 import { createInitialState } from "@/data/initial-state";
-import { applyAdvancement, generateKnockout, revertAdvancement } from "@/lib/bracket";
+import { applyAdvancement, generateKnockout, reconcileSinglesProgression, revertAdvancement } from "@/lib/bracket";
 import { CATEGORY_META, SCHEMA_VERSION } from "@/lib/constants";
 import { defaultMaxForTarget, gameWinner, gamesNeeded, isGameComplete, validateScoringSetup } from "@/lib/scoring";
 import type {
@@ -21,6 +21,8 @@ export type Action =
   | { type: "SYNC_MATCHES"; matches: Match[] }
   | { type: "SET_ROLE"; role: Role }
   | { type: "RESET" }
+  | { type: "RESET_MATCH"; matchId: string }
+  | { type: "RESET_CATEGORY"; category: CategoryId }
   | { type: "ADD_TEAM"; team: Team; players: Player[] }
   | { type: "UPDATE_TEAM"; team: Team; players?: Player[] }
   | { type: "DELETE_TEAM"; teamId: string }
@@ -53,7 +55,11 @@ export function tournamentReducer(state: AppState, action: Action): AppState {
     case "SET_ROLE":
       return { ...state, role: action.role };
     case "RESET":
-      return createInitialState();
+      return { ...createInitialState(), role: state.role };
+    case "RESET_MATCH":
+      return resetMatch(state, action.matchId);
+    case "RESET_CATEGORY":
+      return resetCategory(state, action.category);
     case "ADD_TEAM":
       return addTeam(state, action.team, action.players);
     case "UPDATE_TEAM":
@@ -111,6 +117,36 @@ function addTeam(state: AppState, team: Team, players: Player[]) {
     ...state,
     teams: [...state.teams, team],
     players: mergePlayers(state.players, players),
+  };
+}
+
+function resetCategory(state: AppState, category: CategoryId) {
+  const initial = createInitialState();
+  return {
+    ...state,
+    matches: [...state.matches.filter((match) => match.category !== category), ...initial.matches.filter((match) => match.category === category)],
+    byes: [...state.byes.filter((bye) => bye.category !== category), ...initial.byes.filter((bye) => bye.category === category)],
+  };
+}
+
+function resetMatch(state: AppState, matchId: string) {
+  const target = state.matches.find((match) => match.id === matchId);
+  if (!target) return state;
+  if (target.category === "womens-singles") return resetCategory(state, "womens-singles");
+  const initial = createInitialState();
+  const resetIds = new Set<string>();
+  let cursor: Match | undefined = target;
+  while (cursor) {
+    resetIds.add(cursor.id);
+    cursor = cursor.nextMatchId ? state.matches.find((match) => match.id === cursor?.nextMatchId) : undefined;
+  }
+  return {
+    ...state,
+    matches: state.matches.map((match) => {
+      if (!resetIds.has(match.id)) return match;
+      const baseline = initial.matches.find((item) => item.id === match.id);
+      return baseline ? structuredClone(baseline) : match;
+    }),
   };
 }
 
@@ -363,11 +399,12 @@ function scorePoint(
       completedAt: new Date().toISOString(),
       timeline: [...timeline, event(match.id, "match", `${teamLabel(state, winnerId)} win the match`)],
     };
-    const advanced = applyAdvancement(
-      state.matches.map((item) => (item.id === match.id ? next : item)),
-      match.id,
-      winnerId,
-    );
+    const completedMatches = state.matches.map((item) => (item.id === match.id ? next : item));
+    if (match.category === "womens-singles") {
+      const reconciled = reconcileSinglesProgression(completedMatches, state.byes);
+      return { ...state, matches: reconciled.matches, byes: reconciled.byes };
+    }
+    const advanced = applyAdvancement(completedMatches, match.id, winnerId);
     next = { ...next, history: [...history.slice(0, -1), { ...history[history.length - 1], advancement: advanced.advancement }] };
     return { ...state, matches: advanced.matches.map((item) => (item.id === match.id ? next : item)) };
   }
@@ -390,6 +427,17 @@ function undoPoint(state: AppState, matchId: string) {
   const match = state.matches.find((item) => item.id === matchId);
   if (!match || match.history.length === 0) return state;
   const previous = match.history[match.history.length - 1];
+  if (match.category === "womens-singles" && match.status === "completed") {
+    const blockedIds = match.id.startsWith("WS-M") && Number(match.id.slice(4)) <= 4
+      ? ["WS-M5", "WS-M6", "WS-SF", "WS-F"]
+      : match.id === "WS-M5" || match.id === "WS-M6"
+        ? ["WS-SF", "WS-F"]
+        : [];
+    if (blockedIds.some((id) => {
+      const downstream = state.matches.find((item) => item.id === id);
+      return downstream && (downstream.status !== "upcoming" || downstream.games.length > 0);
+    })) return state;
+  }
   if (previous.advancement) {
     const downstream = state.matches.find((item) => item.id === previous.advancement?.matchId);
     if (downstream && (downstream.status !== "upcoming" || downstream.games.length > 0)) return state;
@@ -412,6 +460,9 @@ function undoPoint(state: AppState, matchId: string) {
     previous.advancement,
     match.winnerId,
   );
+  if (match.category === "womens-singles" && match.status === "completed") {
+    return rollbackSinglesAllocation({ ...state, matches }, match.id);
+  }
   return { ...state, matches };
 }
 
@@ -460,11 +511,12 @@ function completeMatch(state: AppState, matchId: string) {
     history,
     timeline: [...match.timeline, event(match.id, "match", `${teamLabel(state, winnerId)} win the match`)],
   };
-  const advanced = applyAdvancement(
-    state.matches.map((item) => (item.id === match.id ? completed : item)),
-    match.id,
-    winnerId,
-  );
+  const completedMatches = state.matches.map((item) => (item.id === match.id ? completed : item));
+  if (match.category === "womens-singles") {
+    const reconciled = reconcileSinglesProgression(completedMatches, state.byes);
+    return { ...state, matches: reconciled.matches, byes: reconciled.byes };
+  }
+  const advanced = applyAdvancement(completedMatches, match.id, winnerId);
   const withHistory: Match = {
     ...completed,
     history: [...history.slice(0, -1), { ...history[history.length - 1], advancement: advanced.advancement }],
@@ -482,6 +534,35 @@ function deleteCourt(state: AppState, courtId: string) {
       match.courtId === courtId && match.status === "upcoming" ? { ...match, courtId: null } : match,
     ),
   };
+}
+
+function rollbackSinglesAllocation(state: AppState, sourceId: string): AppState {
+  const opening = sourceId.startsWith("WS-M") && Number(sourceId.slice(4)) <= 4;
+  if (opening) {
+    return {
+      ...state,
+      matches: state.matches.map((match) => {
+        if (match.id === "WS-M5") return { ...match, homeId: null, awayId: null };
+        if (match.id === "WS-M6") return { ...match, homeId: null, awayId: "WS09" };
+        if (match.id === "WS-SF") return { ...match, homeId: null, awayId: null };
+        if (match.id === "WS-F") return { ...match, homeId: null, awayId: null };
+        return match;
+      }),
+      byes: state.byes.filter((bye) => bye.id !== "WS-BYE-ROUND2" && bye.id !== "WS-BYE-FINAL"),
+    };
+  }
+  if (sourceId === "WS-M5" || sourceId === "WS-M6") {
+    return {
+      ...state,
+      matches: state.matches.map((match) => {
+        if (match.id === "WS-SF") return { ...match, awayId: null };
+        if (match.id === "WS-F") return { ...match, homeId: null };
+        return match;
+      }),
+      byes: state.byes.filter((bye) => bye.id !== "WS-BYE-FINAL"),
+    };
+  }
+  return state;
 }
 
 function replaceMatch(state: AppState, match: Match) {

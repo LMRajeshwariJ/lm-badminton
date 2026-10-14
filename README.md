@@ -1,6 +1,6 @@
 # LM-Badminton
 
-Office badminton tournament site for mixed doubles and women's singles. The tournament participants, courts, and draw are configured in `src/data`. Match progress is shared through Supabase when configured; without Supabase the public demo remains available from the browser's local seed data, but umpire writes are disabled.
+Office badminton tournament site for mixed doubles and women's singles. The default participants and draw are configured in `src/data`. Match progress and admin changes are shared through Supabase when configured; without Supabase the public draw remains readable, but protected writes are disabled.
 
 ## Local development
 
@@ -47,7 +47,24 @@ The browser contains only the project URL and public anon key. It can read `matc
 
    Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the Edge Function runtime. If your project does not expose these defaults, configure them as Edge Function secrets in the Supabase dashboard. The Function has `verify_jwt = false` because it validates its own short-lived HMAC-signed umpire session token.
 
-4. Copy the project's URL and anon key from Supabase API settings into `.env.local`:
+4. Admin access uses the same server-side HMAC structure with separate credentials. Generate another hash with `node scripts/hash-umpire-code.mjs`, entering the chosen admin password. Put the printed values in an ignored `.env.admin.local` file under these names:
+
+   ```dotenv
+   ADMIN_CODE_PEPPER=THE_PRINTED_UMPIRE_CODE_PEPPER_VALUE
+   ADMIN_ACCESS_CODE_HASH=THE_PRINTED_UMPIRE_ACCESS_CODE_HASH_VALUE
+   ```
+
+   Then upload and deploy:
+
+   ```bash
+   npx supabase secrets set --env-file .env.admin.local
+   npx supabase db push
+   npx supabase functions deploy umpire
+   ```
+
+   The plaintext admin password is never committed or stored in Supabase.
+
+5. Copy the project's URL and anon key from Supabase API settings into `.env.local`:
 
    ```dotenv
    NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
@@ -56,7 +73,7 @@ The browser contains only the project URL and public anon key. It can read `matc
 
    Restart `npm run dev`. Apply the same two public values as Vercel environment variables for Production and Preview when deploying.
 
-The migration creates one row per match, a private two-minute match lease, and a private rate-limit table. Public clients can select match rows but cannot insert/update/delete them. The Edge Function validates a 12-hour session, limits failed access-code attempts to 10 per IP hash per 15-minute window, checks the active match lease, and uses expected revisions for atomic writes. A point updates its match and any bracket slot it advances in one database transaction. Realtime publishes changed match rows; clients reconnect with backoff and reject stale revisions.
+The migrations create one row per changed match and one compact tournament-configuration row, plus private match leases and rate-limit data. The roster and initial draw remain hardcoded; Supabase stores live score changes and admin overrides. Public clients can read these rows but cannot write them. The Edge Function validates role-specific 12-hour sessions, checks umpire leases, and uses expected revisions for atomic writes. Realtime publishes match and configuration changes.
 
 ## Scoring behavior
 
