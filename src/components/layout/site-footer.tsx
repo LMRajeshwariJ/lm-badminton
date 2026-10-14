@@ -7,7 +7,7 @@ export function SiteFooter() {
         <div>
           <p className="font-display text-xl">LM-Badminton</p>
           <p className="mt-1 max-w-md text-sm text-muted">
-            Office championship prototype. Scores and roles stay in this browser. There is no live sync between devices.
+            Live tournament scores, draws, and results sync across connected devices. Umpire and admin access is password protected.
           </p>
         </div>
         <p className="text-xs uppercase tracking-[0.18em] text-muted">Mixed doubles · Women&apos;s singles</p>

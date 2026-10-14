@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useTournament } from "@/context/tournament-context";
 import {
   clearAdminSession,
   clearUmpireSession,
+  heartbeatAccessSession,
   hasSupabaseConfig,
   readAdminSession,
   readUmpireSession,
-  releaseAllMatches,
+  logoutAccessSession,
   verifyAdminCode,
   verifyUmpireCode,
 } from "@/lib/supabase";
@@ -22,6 +23,21 @@ export function RoleSwitcher() {
   const [error, setError] = useState("");
   const [verifying, setVerifying] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    if (state.role === "audience") return;
+    const heartbeat = () => void heartbeatAccessSession().catch((reason: unknown) => {
+      const message = reason instanceof Error ? reason.message : "";
+      if (!/session limit|session expired|inactive/i.test(message)) return;
+      clearUmpireSession();
+      clearAdminSession();
+      dispatch({ type: "SET_ROLE", role: "audience" });
+      router.push("/");
+    });
+    heartbeat();
+    const timer = setInterval(heartbeat, 4 * 60_000);
+    return () => clearInterval(timer);
+  }, [dispatch, router, state.role]);
 
   function enter(role: "umpire" | "admin") {
     const active = role === "umpire" ? readUmpireSession() : readAdminSession();
@@ -54,7 +70,7 @@ export function RoleSwitcher() {
   }
 
   function exit() {
-    if (state.role === "umpire") void releaseAllMatches();
+    void logoutAccessSession();
     clearUmpireSession();
     clearAdminSession();
     dispatch({ type: "SET_ROLE", role: "audience" });

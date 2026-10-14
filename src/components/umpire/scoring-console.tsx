@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Clock3, History, LockKeyhole, Pause, Play, Radio, RotateCcw, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, Check, Clock3, History, Pause, Play, Radio, RotateCcw, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTournament } from "@/context/tournament-context";
 import { CATEGORY_META, ROUND_LABEL } from "@/lib/constants";
-import { claimMatch, readUmpireSession, releaseMatch, renewMatchLease } from "@/lib/supabase";
+import { claimMatch, readScoringSession, renewMatchLease } from "@/lib/supabase";
 import { currentGame, gameWins, playerLine, sideName, teamPlayers } from "@/lib/utils";
 import type { Match, Side } from "@/types";
 
-const faultReasons = ["Foot fault", "Service too high", "Service action", "Receiver not ready", "Racket or body contact", "Other fault"];
+const faultReasons = ["Foot fault", "Service too high", "Illegal service action", "Racket or body contact", "Other service fault"];
 
 export function ScoringConsole({ matchId }: { matchId: string }) {
   const { state, dispatch, syncConnected, syncReady, syncPending, syncError } = useTournament();
@@ -21,8 +21,6 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
   const [ready, setReady] = useState(false);
   const [controlError, setControlError] = useState("");
   const [faultOpen, setFaultOpen] = useState(false);
-  const [faultKind, setFaultKind] = useState<"service-fault" | "fault">("fault");
-  const [faultBy, setFaultBy] = useState<Side>("home");
   const [faultReason, setFaultReason] = useState(faultReasons[0]);
   const [elapsed, setElapsed] = useState(0);
 
@@ -30,8 +28,8 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
     if (!syncReady) return;
     let active = true;
     void Promise.resolve().then(async () => {
-      if (!readUmpireSession()) {
-        if (active) setControlError("Enter the shared umpire code to take control. You can still view this match as a spectator.");
+      if (!readScoringSession()) {
+        if (active) setControlError("Enter an umpire or admin password to take control. You can still view this match as a spectator.");
         return;
       }
       await claimMatch(matchId);
@@ -96,15 +94,9 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [controller, match, syncPending, matchId, dispatch, award]);
 
-  useEffect(() => {
-    if (!match || match.status !== "completed" || !controller || syncPending) return;
-    void releaseMatch(matchId).finally(() => setController(false));
-  }, [match, matchId, controller, syncPending]);
-
-  const exit = useCallback(async () => {
-    if (controller) await releaseMatch(matchId).catch(() => undefined);
-    router.push("/umpire");
-  }, [controller, matchId, router]);
+  const exit = useCallback(() => {
+    router.push(readScoringSession()?.role === "admin" ? "/admin" : "/umpire");
+  }, [router]);
 
   const blockedUndo = useMemo(() => {
     if (!match) return false;
@@ -177,8 +169,7 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-line bg-surface p-3">
           <Button variant="outline" size="lg" disabled={locked || !match.history.length || blockedUndo} onClick={() => dispatch({ type: "UNDO_POINT", matchId })} title={blockedUndo ? "The next match has started; this advancement can no longer be undone." : "Undo the latest scoring action"}><RotateCcw className="h-4 w-4" /> Undo</Button>
           {match.status === "live" ? <>
-            <Button variant="outline" size="lg" disabled={locked} onClick={() => { setFaultKind("fault"); setFaultBy("home"); setFaultOpen(true); }}><LockKeyhole className="h-4 w-4" /> Fault</Button>
-            <Button variant="outline" size="lg" disabled={locked} onClick={() => { setFaultKind("service-fault"); setFaultBy("home"); setFaultOpen(true); }}>Service fault</Button>
+            <Button variant="outline" size="lg" disabled={locked || !match.serving} onClick={() => setFaultOpen(true)}>Fault serve</Button>
             {controller ? match.paused ? <Button size="lg" disabled={syncPending} onClick={() => dispatch({ type: "RESUME_MATCH", matchId })}><Play className="h-4 w-4" /> Resume</Button> : <Button variant="outline" size="lg" disabled={syncPending} onClick={() => dispatch({ type: "PAUSE_MATCH", matchId })}><Pause className="h-4 w-4" /> Pause</Button> : null}
           </> : null}
           <details className="relative">
@@ -196,16 +187,14 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
       </main>
 
       {faultOpen ? <FaultDialog
-        homeName={homeName}
-        awayName={awayName}
-        kind={faultKind}
-        setKind={setFaultKind}
-        offender={faultBy}
-        setOffender={setFaultBy}
+        servingName={match.serving === "home" ? homeName : awayName}
         reason={faultReason}
         setReason={setFaultReason}
         close={() => setFaultOpen(false)}
-        submit={() => award(faultBy === "home" ? "away" : "home", faultKind, faultBy, faultReason)}
+        submit={() => {
+          const offender = match.serving ?? "home";
+          award(offender === "home" ? "away" : "home", "service-fault", offender, faultReason);
+        }}
       /> : null}
     </div>
   );
@@ -230,20 +219,18 @@ function positionsNames(match: Match, side: Side, players: { id: string; name: s
   return [positions.right, positions.left].map((id) => players.find((player) => player.id === id)?.name ?? "");
 }
 
-function FaultDialog({ homeName, awayName, kind, setKind, offender, setOffender, reason, setReason, close, submit }: {
-  homeName: string; awayName: string; kind: "service-fault" | "fault"; setKind: (kind: "service-fault" | "fault") => void;
-  offender: Side; setOffender: (side: Side) => void; reason: string; setReason: (reason: string) => void; close: () => void; submit: () => void;
+function FaultDialog({ servingName, reason, setReason, close, submit }: {
+  servingName: string; reason: string; setReason: (reason: string) => void; close: () => void; submit: () => void;
 }) {
   const control = "mt-1 w-full rounded-xl border border-line bg-background px-3 py-3 text-base";
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
       <section role="dialog" aria-modal="true" aria-labelledby="fault-dialog-title" className="w-full max-w-md rounded-3xl border border-line bg-surface p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky">Point awarded to opponent</p>
-        <h2 id="fault-dialog-title" className="mt-2 font-display text-3xl">Record a fault</h2>
-        <label className="mt-4 block text-sm font-semibold">Fault type<select value={kind} onChange={(event) => setKind(event.target.value as "service-fault" | "fault")} className={control}><option value="fault">Other fault</option><option value="service-fault">Service fault</option></select></label>
-        <label className="mt-3 block text-sm font-semibold">Fault committed by<select value={offender} onChange={(event) => setOffender(event.target.value as Side)} className={control}><option value="home">{homeName}</option><option value="away">{awayName}</option></select></label>
-        <label className="mt-3 block text-sm font-semibold">Reason<select value={reason} onChange={(event) => setReason(event.target.value)} className={control}>{faultReasons.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <div className="mt-5 flex justify-end gap-2"><Button variant="ghost" onClick={close}>Cancel</Button><Button onClick={submit}>Record fault</Button></div>
+        <h2 id="fault-dialog-title" className="mt-2 font-display text-3xl">Fault serve</h2>
+        <p className="mt-2 text-sm text-muted">{servingName} loses the rally. The opponent receives one point and takes service.</p>
+        <label className="mt-4 block text-sm font-semibold">Reason<select value={reason} onChange={(event) => setReason(event.target.value)} className={control}>{faultReasons.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <div className="mt-5 flex justify-end gap-2"><Button variant="ghost" onClick={close}>Cancel</Button><Button onClick={submit}>Award opponent</Button></div>
       </section>
     </div>
   );

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CategoryBadge } from "@/components/common/category-badge";
 import { useTournament } from "@/context/tournament-context";
 import { CATEGORY_META, ROUND_LABEL } from "@/lib/constants";
-import { claimMatch, hasSupabaseConfig, readUmpireSession } from "@/lib/supabase";
+import { claimMatch, hasSupabaseConfig, readScoringSession } from "@/lib/supabase";
 import { currentGame, gameWins, playerLine, sideName, teamPlayers } from "@/lib/utils";
 import type { Match, Side } from "@/types";
 
@@ -25,7 +25,7 @@ export function UmpireDashboard() {
   const [starting, setStarting] = useState<Match | null>(null);
   const [message, setMessage] = useState("");
   const [viewOnlyIds, setViewOnlyIds] = useState<Set<string>>(new Set());
-  const authorized = Boolean(readUmpireSession());
+  const authorized = Boolean(readScoringSession());
 
   async function takeControl(match: Match) {
     setMessage("");
@@ -51,7 +51,7 @@ export function UmpireDashboard() {
 
   if (!authorized) {
     return (
-      <SetupNotice title="Umpire session required" body="Choose Umpire in the header and enter the shared code before managing matches." />
+      <SetupNotice title="Scoring session required" body="Choose Umpire or Admin in the header and enter the password before managing matches." />
     );
   }
 
@@ -66,7 +66,7 @@ export function UmpireDashboard() {
         <div>
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-accent"><ShieldCheck className="h-4 w-4" /> Umpire desk</p>
           <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Matches</h1>
-          <p className="mt-2 text-muted">Choose a match to take control. One umpire can score a match at a time.</p>
+          <p className="mt-2 text-muted">The umpire who starts a match owns its scoring controls. Admins can override any match.</p>
         </div>
         <div className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-muted">
           <span className="inline-flex items-center gap-2"><Radio className="h-4 w-4 text-accent" /> Public score sync is active</span>

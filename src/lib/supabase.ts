@@ -1,7 +1,6 @@
 import type { AppState, Match, TournamentConfigState } from "@/types";
 
 const SESSION_KEY = "lm-badminton-umpire-session";
-const LEASES_KEY = "lm-badminton-active-leases";
 const REVISION_KEY = "lm-badminton-match-revisions";
 const ADMIN_SESSION_KEY = "lm-badminton-admin-session";
 const CONFIG_REVISION_KEY = "lm-badminton-config-revision";
@@ -10,6 +9,7 @@ export interface UmpireSession {
   token: string;
   umpireId: string;
   expiresAt: number;
+  role?: "umpire" | "admin";
 }
 
 export interface AdminSession extends UmpireSession {
@@ -60,7 +60,6 @@ export function saveUmpireSession(session: UmpireSession) {
 export function clearUmpireSession() {
   if (typeof window === "undefined") return;
   sessionStorage.removeItem(SESSION_KEY);
-  sessionStorage.removeItem(LEASES_KEY);
 }
 
 export function readAdminSession(): AdminSession | null {
@@ -81,10 +80,8 @@ export function clearAdminSession() {
   if (typeof window !== "undefined") sessionStorage.removeItem(ADMIN_SESSION_KEY);
 }
 
-export function getControllerId() {
-  if (typeof window === "undefined") return null;
-  const session = readUmpireSession();
-  return session?.umpireId ?? null;
+export function readScoringSession(): UmpireSession | AdminSession | null {
+  return readAdminSession() ?? readUmpireSession();
 }
 
 export async function verifyUmpireCode(code: string) {
@@ -127,6 +124,7 @@ export async function writeRemoteAdminState(previous: AppState, next: AppState) 
   const result = await callFunction<{ matches: RemoteMatch[]; configRevision: number }>("admin-write", {
     config: { expectedRevision: Number(localStorage.getItem(CONFIG_REVISION_KEY) ?? 0), state },
     updates: changed.map((match) => ({ matchId: match.id, expectedRevision: getMatchRevision(match.id), state: match })),
+    releaseMatchIds: changed.filter((match) => match.status === "upcoming").map((match) => match.id),
   }, session.token);
   result.matches?.forEach(rememberRemoteMatch);
   localStorage.setItem(CONFIG_REVISION_KEY, String(result.configRevision));
@@ -134,31 +132,32 @@ export async function writeRemoteAdminState(previous: AppState, next: AppState) 
 }
 
 export async function claimMatch(matchId: string) {
-  const session = requiredSession();
+  const session = requiredScoringSession();
   const result = await callFunction<{ ok: boolean; leaseExpiresAt?: string }>("claim", { matchId, umpireId: session.umpireId }, session.token);
-  const leases = new Set(JSON.parse(sessionStorage.getItem(LEASES_KEY) ?? "[]") as string[]);
-  leases.add(matchId);
-  sessionStorage.setItem(LEASES_KEY, JSON.stringify([...leases]));
   return result;
 }
 
 export async function renewMatchLease(matchId: string) {
-  const session = requiredSession();
+  const session = requiredScoringSession();
   return callFunction<{ ok: boolean; leaseExpiresAt?: string }>("renew", { matchId, umpireId: session.umpireId }, session.token);
 }
 
-export async function releaseMatch(matchId: string) {
-  const session = readUmpireSession();
-  if (!session) return;
-  await callFunction("release", { matchId, umpireId: session.umpireId }, session.token);
-  const leases = (JSON.parse(sessionStorage.getItem(LEASES_KEY) ?? "[]") as string[]).filter((id) => id !== matchId);
-  sessionStorage.setItem(LEASES_KEY, JSON.stringify(leases));
+export async function adminReleaseMatch(matchId: string) {
+  const session = readAdminSession();
+  if (!session) throw new Error("Your admin session expired. Re-enter the admin password.");
+  return callFunction<{ ok: boolean }>("admin-release", { matchId }, session.token);
 }
 
-export async function releaseAllMatches() {
-  if (typeof window === "undefined") return;
-  const leases = JSON.parse(sessionStorage.getItem(LEASES_KEY) ?? "[]") as string[];
-  await Promise.allSettled(leases.map((id) => releaseMatch(id)));
+export async function heartbeatAccessSession() {
+  const session = readScoringSession();
+  if (!session) return false;
+  await callFunction<{ ok: boolean }>("heartbeat", {}, session.token);
+  return true;
+}
+
+export async function logoutAccessSession() {
+  const sessions = [readUmpireSession(), readAdminSession()].filter((session): session is UmpireSession | AdminSession => Boolean(session));
+  await Promise.allSettled(sessions.map((session) => callFunction("logout", {}, session.token)));
 }
 
 export function getMatchRevision(matchId: string) {
@@ -203,7 +202,7 @@ export async function fetchRemoteMatches(options: { forceRevision?: boolean } = 
 }
 
 export async function writeRemoteMatches(controllerMatchId: string, matches: Match[]) {
-  const session = requiredSession();
+  const session = requiredScoringSession();
   const result = await callFunction<{ matches: RemoteMatch[] }>(
     "write",
     {
@@ -344,8 +343,8 @@ async function callFunction<T = void>(operation: string, body: Record<string, un
   return result;
 }
 
-function requiredSession() {
-  const session = readUmpireSession();
-  if (!session) throw new Error("Your umpire session expired. Re-enter the access code.");
+function requiredScoringSession() {
+  const session = readScoringSession();
+  if (!session) throw new Error("Your umpire or admin session expired. Re-enter the access code.");
   return session;
 }

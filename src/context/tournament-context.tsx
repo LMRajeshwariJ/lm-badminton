@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, u
 import { createInitialState } from "@/data/initial-state";
 import { SCHEMA_VERSION, STORAGE_KEY } from "@/lib/constants";
 import { tournamentReducer, type Action } from "@/reducers/tournament-reducer";
-import { fetchRemoteConfig, fetchRemoteMatches, hasSupabaseConfig, readAdminSession, readUmpireSession, subscribeToRemoteMatches, writeRemoteAdminState, writeRemoteMatches, type RemoteMatch } from "@/lib/supabase";
+import { fetchRemoteConfig, fetchRemoteMatches, hasSupabaseConfig, readAdminSession, readScoringSession, subscribeToRemoteMatches, writeRemoteAdminState, writeRemoteMatches, type RemoteMatch } from "@/lib/supabase";
 import type { AppState, ByeAssignment } from "@/types";
 
 interface TournamentContextValue {
@@ -110,7 +110,7 @@ const sharedWriteTypes = new Set<Action["type"]>([
   "START_MATCH", "SCORE_POINT", "UNDO_POINT", "PAUSE_MATCH", "RESUME_MATCH", "COMPLETE_GAME", "COMPLETE_MATCH",
 ]);
 const adminWriteTypes = new Set<Action["type"]>([
-  "RESET", "RESET_MATCH", "RESET_CATEGORY", "UPDATE_TEAM", "UPDATE_FIXTURE", "ASSIGN_BYE", "UPDATE_COURT", "UPDATE_TOURNAMENT",
+  "RESET", "RESET_MATCH", "RESET_CATEGORY", "UPDATE_TEAM", "UPDATE_FIXTURE", "UPDATE_SCORING_RULES", "ASSIGN_BYE", "UPDATE_COURT", "UPDATE_TOURNAMENT",
 ]);
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
@@ -169,8 +169,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
     if (sharedWriteTypes.has(action.type)) {
       if (syncPending) return;
-      if (!readUmpireSession()) {
-        setSyncError("A valid umpire session is required to record scores.");
+      if (!readScoringSession()) {
+        setSyncError("A valid umpire or admin session is required to record scores.");
         return;
       }
       const next = tournamentReducer(current, action);

@@ -27,7 +27,8 @@ export type Action =
   | { type: "UPDATE_TEAM"; team: Team; players?: Player[] }
   | { type: "DELETE_TEAM"; teamId: string }
   | { type: "CREATE_FIXTURE"; match: Match }
-  | { type: "UPDATE_FIXTURE"; matchId: string; patch: Partial<Pick<Match, "homeId" | "awayId" | "round" | "scheduledAt" | "courtId" | "category">> }
+  | { type: "UPDATE_FIXTURE"; matchId: string; patch: Partial<Pick<Match, "homeId" | "awayId" | "round" | "scheduledAt" | "courtId" | "category" | "pointsPerGame" | "maxPoints" | "bestOf">> }
+  | { type: "UPDATE_SCORING_RULES"; category?: CategoryId; pointsPerGame: number; maxPoints: number; bestOf: number }
   | { type: "DELETE_FIXTURE"; matchId: string }
   | { type: "ASSIGN_BYE"; bye: ByeAssignment }
   | { type: "GENERATE_BRACKET"; category: CategoryId; byeTeamIds?: string[] }
@@ -70,6 +71,8 @@ export function tournamentReducer(state: AppState, action: Action): AppState {
       return createFixture(state, action.match);
     case "UPDATE_FIXTURE":
       return updateFixture(state, action.matchId, action.patch);
+    case "UPDATE_SCORING_RULES":
+      return updateScoringRules(state, action);
     case "DELETE_FIXTURE":
       return deleteFixture(state, action.matchId);
     case "ASSIGN_BYE":
@@ -195,17 +198,40 @@ function createFixture(state: AppState, match: Match) {
 function updateFixture(
   state: AppState,
   matchId: string,
-  patch: Partial<Pick<Match, "homeId" | "awayId" | "round" | "scheduledAt" | "courtId" | "category">>,
+  patch: Partial<Pick<Match, "homeId" | "awayId" | "round" | "scheduledAt" | "courtId" | "category" | "pointsPerGame" | "maxPoints" | "bestOf">>,
 ) {
   const match = state.matches.find((item) => item.id === matchId);
   if (!match || match.status !== "upcoming") return state;
   const next = { ...match, ...patch };
+  if (!validScoringRules(next.pointsPerGame, next.maxPoints, next.bestOf)) return state;
   if (next.homeId && next.homeId === next.awayId) return state;
   if (!sameCategory(state, next.homeId, next.category) || !sameCategory(state, next.awayId, next.category)) {
     return state;
   }
   if (occupiesRound(state.matches, next, match.id)) return state;
   return { ...state, matches: state.matches.map((item) => (item.id === match.id ? next : item)) };
+}
+
+function updateScoringRules(
+  state: AppState,
+  action: Extract<Action, { type: "UPDATE_SCORING_RULES" }>,
+) {
+  if (!validScoringRules(action.pointsPerGame, action.maxPoints, action.bestOf)) return state;
+  return {
+    ...state,
+    matches: state.matches.map((match) => {
+      if (match.status !== "upcoming" || (action.category && match.category !== action.category)) return match;
+      return { ...match, pointsPerGame: action.pointsPerGame, maxPoints: action.maxPoints, bestOf: action.bestOf };
+    }),
+  };
+}
+
+function validScoringRules(pointsPerGame: number, maxPoints: number, bestOf: number) {
+  return (
+    Number.isInteger(pointsPerGame) && pointsPerGame >= 1 && pointsPerGame <= 99 &&
+    Number.isInteger(maxPoints) && maxPoints >= pointsPerGame && maxPoints <= 99 &&
+    Number.isInteger(bestOf) && [1, 3, 5].includes(bestOf)
+  );
 }
 
 function deleteFixture(state: AppState, matchId: string) {

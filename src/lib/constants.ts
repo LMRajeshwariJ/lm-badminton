@@ -10,7 +10,7 @@ export const CATEGORY_META: Record<
     shortLabel: string;
     pointsPerGame: number;
     maxPoints: number;
-    bestOf: 3;
+    bestOf: number;
     entryNoun: string;
     fieldSize: number;
     byeCount: number;

@@ -86,7 +86,7 @@ export interface Match {
   scheduledAt: string | null;
   pointsPerGame: number;
   maxPoints: number;
-  bestOf: 3;
+  bestOf: number;
   winBy: number;
   games: GameScore[];
   serving: Side | null;

@@ -13,7 +13,20 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Umpire access is disabled until Supabase is configured. `npm test`, `npm run lint`, `npx tsc --noEmit`, and `npm run build` are available.
+Open [http://localhost:3000](http://localhost:3000). Umpire and admin access are disabled until Supabase is configured. The two `NEXT_PUBLIC_*` values are safe browser credentials; they identify the project but cannot bypass Row Level Security.
+
+### Sharing the repository with another person
+
+Share the Git repository and `.env.example`. Do **not** share or commit `.env.local`, `.env.admin.local`, `.env.supabase.local`, the Supabase service-role key, database password, session secret, code peppers, or password hashes.
+
+For a collaborator who should use the same tournament database:
+
+1. They run `npm install` and copy `.env.example` to `.env.local`.
+2. Send them only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. These may also be copied from the Vercel project settings.
+3. Send the umpire or admin password separately through a private channel. Never add either password to an environment file or source code.
+4. They run `npm run dev`. Their local scoring changes affect the same live tournament, so use the practice scorer at `/admin/practice` for harmless checks.
+
+For an independent copy, the other person should create their own Supabase project and follow the setup below. This keeps their local testing and deployment separate from your tournament.
 
 ## Supabase setup
 
@@ -73,16 +86,18 @@ The browser contains only the project URL and public anon key. It can read `matc
 
    Restart `npm run dev`. Apply the same two public values as Vercel environment variables for Production and Preview when deploying.
 
-The migrations create one row per changed match and one compact tournament-configuration row, plus private match leases and rate-limit data. The roster and initial draw remain hardcoded; Supabase stores live score changes and admin overrides. Public clients can read these rows but cannot write them. The Edge Function validates role-specific 12-hour sessions, checks umpire leases, and uses expected revisions for atomic writes. Realtime publishes match and configuration changes.
+The migrations create one row per changed match and one compact tournament-configuration row, plus private ownership, session-limit, and rate-limit data. The roster and initial draw remain hardcoded; Supabase stores live score changes and admin overrides. Public clients can read these rows but cannot write them. The Edge Function validates role-specific sessions, limits active access to five umpires and two admins, checks match ownership, and uses expected revisions for atomic writes. Realtime publishes match and configuration changes.
 
 ## Scoring behavior
 
-- Best of three; a game requires the configured target and a two-point lead, with the configured cap ending a game.
-- Rally points and recorded service/other faults both use the same scoring action and timeline.
+- Admins can set the point target, point cap, and best-of-one/three/five format for all upcoming matches, a category, or one upcoming match.
+- A game requires the configured target and a two-point lead, with the configured cap ending a game.
+- **Fault serve** awards one point to the receiving side and transfers service. Undo restores the score and service state.
 - Singles service court is derived from the serving player's score parity. Doubles tracks each pair's right/left player positions. The serving pair swaps positions when it wins a point on serve; a receiving pair takes service from the player in the court matching its score parity.
 - At match start, the umpire chooses the serving side and, for doubles, first server and receiver in the right court.
 - Undo restores score, serve, player positions, game/match state, and bracket advancement. Undo is blocked if the advanced next match has started, which avoids silently corrupting a downstream result.
-- A lease expires after two minutes without renewal. The scoring screen renews it every 30 seconds. A different umpire can reclaim it after expiration.
+- The umpire who starts a match remains its owner and is the only umpire who can change it. An admin can score any match and can reset results when ownership needs intervention.
+- `/admin/practice` starts isolated random matches for checking scoring. Practice scores never write to Supabase or affect the draw.
 
 ## Tests and checks
 
@@ -101,10 +116,10 @@ Use three separate browser profiles (and optionally a phone), all pointed at the
 
 1. In Browser 1, choose **Umpire**, enter an invalid code and confirm it is rejected. Enter the correct code and open the Umpire desk.
 2. Start a scheduled match. Confirm the details, choose Court 1, pick the first serving side/player, and begin scoring. It should open the full-screen console and appear on the public Live page.
-3. In Browser 2, enter the umpire code and start a different scheduled match on Court 2. Award points in both consoles and confirm the scores advance independently.
+3. In Browser 2, enter the umpire code and start a different scheduled match on Court 2. Award points in both consoles and confirm the scores advance independently. Repeat with up to five active umpire sessions; a sixth must be rejected.
 4. Open Browser 3 to `/live`. Confirm both courts appear. Award a point in Browser 1 and verify Browser 3 updates without refresh. Open a match detail page and verify the current score, server, game scores, and history.
-5. Record an other fault and a service fault. Confirm the opponent receives one point and the reason appears in history. Undo each and check the score and serving position return.
-6. Pause and resume one match. Refresh its console; it should recover the latest score. Leave Browser 2 idle for over two minutes in a separate check, then reclaim the match from another umpire; an unexpired lease should prevent takeover.
+5. Record a fault serve. Confirm the opponent receives one point, takes service, and the reason appears in history. Undo it and check the score and serving position return.
+6. Pause and resume one match. Refresh its console; it should recover the latest score. Try the match from another umpire session and confirm it stays read-only. Sign in as admin and confirm the admin can override it.
 7. Score through a game and then a match. Confirm game winner, completion state, result visibility, bracket advancement, and standings. Undo the match-winning point before the next match starts and confirm the bracket slot clears. After the next match has started, confirm undo is blocked.
 8. Disconnect one spectator browser from the network, score additional points, reconnect, and confirm it receives the latest database score after the Realtime reconnect. Refresh the spectator page midway through another game and confirm it loads the saved current score.
 9. In a separate browser, attempt a direct REST write with the anon key and confirm RLS denies it. Try repeated wrong codes and confirm the endpoint rate-limits further checks.
@@ -113,14 +128,13 @@ Use three separate browser profiles (and optionally a phone), all pointed at the
 
 Import the repository into Vercel, add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, then deploy. Deployments do not reset match progress because Supabase holds the mutable match rows. App Router nested routes such as `/live/<matchId>` and `/umpire/match/<matchId>` are handled by Next.js; no custom rewrite is required.
 
-Check the current account terms before using Vercel Hobby for an office or organizational tournament: Hobby is restricted to personal, non-commercial use. See [Vercel Hobby Plan](https://vercel.com/docs/plans/hobby) and [Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines).
-
-Supabase's published Free plan currently includes 2 million Realtime messages, 200 peak Realtime connections, 500,000 Edge Function invocations, and a 500 MB database quota. A tournament with a small audience and a few courts should be modest, but reconnecting spectators increase Realtime messages. Verify current [Supabase billing limits](https://supabase.com/docs/guides/platform/billing-on-supabase) and [Realtime limits](https://supabase.com/docs/guides/realtime/limits) before the event; providers can change quotas and eligibility.
+For this personal deployment, a Vercel personal project is sufficient. Keep the two public Supabase variables in the Vercel project and keep all server secrets in Supabase Edge Function secrets.
 
 ## Current limits
 
 - The tournament roster and bracket topology remain hardcoded in `src/data`; bracket edits are not managed through the umpire UI.
 - This shared access code is suitable for a small event, not identity-grade authentication. Anyone who knows it can authorize a browser until their session expires.
-- Match leases recover after two minutes, so a device that loses connectivity may briefly hold a lease until expiry.
+- Shared passwords identify a browser session rather than a named person. Five active umpire sessions and two active admin sessions are allowed; an inactive session stops counting after ten minutes, while its signed token remains valid for up to twelve hours.
+- Match ownership stays with the umpire session that started it. If that browser session is lost, an admin can override or reset the match.
 - Browser-side Realtime uses Supabase's Phoenix WebSocket protocol v2 directly. If Supabase changes that protocol, update the subscription adapter in `src/lib/supabase.ts`.
 - Deployment remains a manual operator action. No Supabase project or Vercel deployment is configured by this repository alone.

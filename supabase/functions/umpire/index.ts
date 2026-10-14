@@ -20,6 +20,13 @@ Deno.serve(async (request: Request) => {
     if (operation === "verify") return await verifyAccess(request, String(body.code ?? ""), body.access === "admin" ? "admin" : "umpire");
 
     const claims = await readSession(request);
+    if (operation === "logout") {
+      await rpc<boolean>("revoke_access_session", { p_session_id: claims.sub });
+      return json({ ok: true });
+    }
+    const active = await rpc<boolean>("touch_access_session", { p_session_id: claims.sub, p_role: claims.role });
+    if (!active) return json({ error: `The ${claims.role} session limit has been reached. Try again after another session exits.` }, 409);
+    if (operation === "heartbeat") return json({ ok: true });
     if (operation === "admin-write") {
       if (claims.role !== "admin") return json({ error: "An admin session is required." }, 403);
       const updates = Array.isArray(body.updates) ? body.updates : [];
@@ -28,40 +35,46 @@ Deno.serve(async (request: Request) => {
         p_config: body.config,
         p_updates: updates,
       });
+      const releaseMatchIds = Array.isArray(body.releaseMatchIds) ? body.releaseMatchIds.slice(0, 30) : [];
+      await Promise.all(releaseMatchIds.map((matchId: unknown) => rpc<boolean>("admin_release_match_lease", { p_match_id: String(matchId) })));
       return json(result);
     }
-    if (claims.role !== "umpire") return json({ error: "An umpire session is required." }, 403);
     if (body.umpireId && body.umpireId !== claims.sub) return json({ error: "Umpire session does not match." }, 401);
     const matchId = String(body.matchId ?? body.controllerMatchId ?? "");
     if (!matchId) return json({ error: "A match ID is required." }, 400);
 
     if (operation === "claim") {
+      if (claims.role === "admin") return json({ ok: true, adminOverride: true });
       const ok = await rpc<boolean>("claim_match_lease", { p_match_id: matchId, p_umpire_id: claims.sub });
-      return ok ? json({ ok, leaseExpiresAt: new Date(Date.now() + 120_000).toISOString() }) : json({ error: "Another umpire controls this match. You can view the score, but cannot change it." }, 409);
+      return ok ? json({ ok, leaseExpiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString() }) : json({ error: "Only the umpire who started this match can change it. An admin can override it." }, 409);
     }
     if (operation === "renew") {
+      if (claims.role === "admin") return json({ ok: true, adminOverride: true });
       const ok = await rpc<boolean>("renew_match_lease", { p_match_id: matchId, p_umpire_id: claims.sub });
-      return ok ? json({ ok, leaseExpiresAt: new Date(Date.now() + 120_000).toISOString() }) : json({ error: "Match control expired or belongs to another umpire." }, 409);
+      return ok ? json({ ok, leaseExpiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString() }) : json({ error: "Only the umpire who started this match can change it." }, 409);
     }
-    if (operation === "release") {
-      const ok = await rpc<boolean>("release_match_lease", { p_match_id: matchId, p_umpire_id: claims.sub });
+    if (operation === "admin-release") {
+      if (claims.role !== "admin") return json({ error: "An admin session is required." }, 403);
+      const ok = await rpc<boolean>("admin_release_match_lease", { p_match_id: matchId });
       return json({ ok });
     }
     if (operation === "write") {
       const updates = Array.isArray(body.updates) ? body.updates : [];
       if (!updates.length || updates.length > 4) return json({ error: "Invalid match update batch." }, 400);
-      const rows = await rpc("write_match_states", {
-        p_controller_match_id: matchId,
-        p_umpire_id: claims.sub,
-        p_updates: updates,
-      });
+      const rows = claims.role === "admin"
+        ? await rpc("admin_write_match_states", { p_updates: updates })
+        : await rpc("write_match_states", {
+            p_controller_match_id: matchId,
+            p_umpire_id: claims.sub,
+            p_updates: updates,
+          });
       return json({ matches: rows });
     }
     return json({ error: "Unknown operation." }, 400);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Request failed.";
     if (message.includes("expired") || message.includes("Invalid umpire session")) return json({ error: message }, 401);
-    if (message.includes("Stale match revision") || message.includes("lease expired") || message.includes("belongs to another umpire")) {
+    if (message.includes("Stale match revision") || message.includes("lease expired") || message.includes("belongs to another umpire") || message.includes("umpire who started")) {
       return json({ error: message }, 409);
     }
     console.error("Umpire function error", message);
@@ -83,6 +96,15 @@ async function verifyAccess(request: Request, code: string, access: "umpire" | "
   if (!constantTimeEqual(suppliedHash, hash)) return json({ error: "That access code is not correct." }, 401);
   const umpireId = crypto.randomUUID();
   const expiresAt = Date.now() + 12 * 60 * 60 * 1000;
+  const registered = await rpc<boolean>("register_access_session", {
+    p_session_id: umpireId,
+    p_role: access,
+    p_expires_at: new Date(expiresAt).toISOString(),
+  });
+  if (!registered) {
+    const maximum = access === "admin" ? 2 : 5;
+    return json({ error: `All ${maximum} ${access} sessions are in use. Ask someone to exit, or try again in a few minutes.` }, 409);
+  }
   const token = await signSession({ sub: umpireId, role: access, iat: Math.floor(Date.now() / 1000), exp: Math.floor(expiresAt / 1000) }, env.sessionSecret);
   return json({ token, umpireId, expiresAt, role: access });
 }
