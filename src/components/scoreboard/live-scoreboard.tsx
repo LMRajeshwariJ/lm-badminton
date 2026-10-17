@@ -7,12 +7,13 @@ import { CategoryBadge } from "@/components/common/category-badge";
 import { ShuttleIcon } from "@/components/common/shuttle";
 import { StatusBadge } from "@/components/common/status-badge";
 import { EmptyState } from "@/components/common/empty-state";
+import { MatchResultBanner } from "@/components/common/match-result-banner";
 import { useTournament } from "@/context/tournament-context";
 import { ROUND_LABEL } from "@/lib/constants";
 import { currentGame, finishedGames, formatClock, formatKickoff, gameWins, playerLine, pointsLabel, sideName, teamPlayers } from "@/lib/utils";
 
 export function LiveScoreboard({ matchId }: { matchId: string }) {
-  const { state } = useTournament();
+  const { state, syncReady } = useTournament();
   const match = state.matches.find((item) => item.id === matchId);
   if (!match) {
     return (
@@ -33,6 +34,7 @@ export function LiveScoreboard({ matchId }: { matchId: string }) {
   const servingTeam = state.teams.find((team) => team.id === (match.serving === "home" ? match.homeId : match.awayId));
   const servingPlayer = teamPlayers(servingTeam, state.players).find((player) => player.id === match.servingPlayerId)?.name ?? "";
   const winnerName = match.winnerId ? state.teams.find((team) => team.id === match.winnerId)?.name : null;
+  const nextMatch = match.nextMatchId ? state.matches.find((item) => item.id === match.nextMatchId) : undefined;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -55,11 +57,7 @@ export function LiveScoreboard({ matchId }: { matchId: string }) {
             </span>
           </h1>
         </div>
-        {winnerName ? (
-          <p className="relative bg-accent px-5 py-3 text-center font-display text-xl text-[#101608] sm:text-2xl">
-            {winnerName} take the match
-          </p>
-        ) : null}
+        <MatchResultBanner match={match} winnerName={winnerName} nextMatch={nextMatch} syncReady={syncReady} />
         <div className="relative grid sm:grid-cols-2">
           <ScoreSide
             name={homeName}

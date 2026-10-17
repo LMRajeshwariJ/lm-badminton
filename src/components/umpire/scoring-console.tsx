@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Clock3, History, Pause, Play, Radio, RotateCcw, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, Clock3, History, Pause, Play, Radio, RotateCcw, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AnimatedScore } from "@/components/common/animated-score";
+import { MatchResultBanner } from "@/components/common/match-result-banner";
 import { useTournament } from "@/context/tournament-context";
 import { CATEGORY_META, ROUND_LABEL } from "@/lib/constants";
 import { claimMatch, readScoringSession, renewMatchLease } from "@/lib/supabase";
@@ -122,6 +124,7 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
   const servePlayer = teamPlayers(serveTeam, state.players).find((player) => player.id === servePlayerId)?.name ?? (serveTeam ? teamPlayers(serveTeam, state.players)[0]?.name : "");
   const serviceCourt = match.serving && game ? (game[match.serving] % 2 === 0 ? "Right court" : "Left court") : "";
   const title = `${homeName} vs ${awayName}`;
+  const nextMatch = match.nextMatchId ? state.matches.find((item) => item.id === match.nextMatchId) : undefined;
   return (
     <div className="min-h-[calc(100svh-5rem)] bg-background">
       <header className="sticky top-0 z-30 border-b border-line bg-background/95 px-3 py-3 backdrop-blur sm:px-6">
@@ -140,7 +143,7 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
       <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
         {!controller && ready ? <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky/20 bg-sky/10 px-4 py-3 text-sm text-sky"><span>{controlError || "Read-only match view. Another umpire has control."}</span><Link href={`/live/${match.id}`} className="font-semibold underline">Public view</Link></div> : null}
         {syncError ? <p role="alert" className="mb-4 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{syncError}</p> : null}
-        {match.status === "completed" ? <div className="mb-4 flex items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 font-display text-lg text-[#101608]"><Check className="h-5 w-5" /> Match complete · {sideName(match, match.winnerId === match.homeId ? "home" : "away", state.teams)} win</div> : null}
+        <MatchResultBanner match={match} winnerName={match.winnerId ? sideName(match, match.winnerId === match.homeId ? "home" : "away", state.teams) : null} nextMatch={nextMatch} syncReady={syncReady} />
         {match.paused ? <div className="mb-4 rounded-2xl border border-sky/30 bg-sky/10 px-4 py-3 text-center font-display text-lg text-sky">Match paused</div> : null}
 
         <section className="grid gap-3 sm:grid-cols-2">
@@ -206,7 +209,7 @@ function ScorePanel({ side, name, players, score, games, serving, servingPlayer,
       <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted"><span>{side === "home" ? "Side A" : "Side B"}</span><span>{games} {games === 1 ? "game" : "games"}</span></div>
       <h1 className="mt-3 font-display text-2xl tracking-tight sm:text-3xl">{name}</h1>
       {players ? <p className="mt-1 min-h-5 text-sm text-muted">{players}</p> : <div className="min-h-5" />}
-      <p className={`mt-2 font-display text-[6rem] leading-none tabular-nums sm:text-[8rem] ${serving ? "text-accent" : "text-foreground"}`} aria-label={`${name}: ${score}`}>{score}</p>
+      <AnimatedScore value={score} className={`mt-2 font-display text-[6rem] leading-none sm:text-[8rem] ${serving ? "text-accent" : "text-foreground"}`} />
       {serving ? <div className="mt-2 inline-flex max-w-full items-center gap-2 rounded-full bg-accent/15 px-3 py-1.5 text-xs font-semibold text-accent"><Radio className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Serving{servingPlayer ? ` · ${servingPlayer}` : ""}{serviceCourt ? ` · ${serviceCourt}` : ""}</span></div> : <div className="mt-2 min-h-7" />}
       {positionNames.length === 2 ? <p className="mt-3 text-[11px] text-muted">Right: {positionNames[0]} · Left: {positionNames[1]}</p> : null}
     </article>
