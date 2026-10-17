@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnimatedScore } from "@/components/common/animated-score";
 import { CategoryBadge } from "@/components/common/category-badge";
 import { StatusBadge } from "@/components/common/status-badge";
 import { ROUND_LABEL } from "@/lib/constants";
@@ -92,7 +93,7 @@ function SideRow({
         {players ? <p className="truncate text-sm text-muted">{players}</p> : null}
       </div>
       <p className={`font-display tabular-nums ${featured ? "text-5xl" : "text-3xl"} ${score === null ? "text-muted" : "text-foreground"}`}>
-        {score === null ? "–" : score}
+        {score === null ? "–" : <AnimatedScore value={score} />}
       </p>
     </div>
   );

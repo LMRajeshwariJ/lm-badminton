@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { ArrowLeft, RotateCcw, Trophy } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
+import { AnimatedScore } from "@/components/common/animated-score";
 import { useTournament } from "@/context/tournament-context";
 import { CATEGORY_META } from "@/lib/constants";
 import { gameWinner, gamesNeeded } from "@/lib/scoring";
@@ -18,6 +20,7 @@ interface PracticeSnapshot {
 
 export function PracticeMatch() {
   const { state } = useTournament();
+  const reduce = useReducedMotion();
   const [category, setCategory] = useState<CategoryId>("mixed-doubles");
   const [teamIds, setTeamIds] = useState<[string, string]>(() => randomPair(state.teams.filter((team) => team.category === "mixed-doubles").map((team) => team.id)));
   const [pointsPerGame, setPointsPerGame] = useState(15);
@@ -98,7 +101,19 @@ export function PracticeMatch() {
         <label className="text-sm font-semibold">Games<select className={input} value={bestOf} onChange={(event) => { setBestOf(Number(event.target.value)); resetScore(); }}><option value={1}>Best of 1</option><option value={3}>Best of 3</option><option value={5}>Best of 5</option></select></label>
         <div className="sm:col-span-5"><Button variant="outline" onClick={randomize}>New random match</Button>{!valid ? <span className="ml-3 text-sm text-danger">Cap must be at least the points target.</span> : null}</div>
       </section>
-      {complete ? <div className="mt-4 rounded-2xl bg-accent px-4 py-3 text-center font-display text-xl text-[#101608]">{winnerName} win the practice match</div> : null}
+      {complete ? (
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 12, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 360, damping: 24 }}
+          aria-live="polite"
+          className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-accent/30 bg-gradient-to-r from-accent/15 via-surface to-sky/10 px-4 py-4 text-center"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-[#101608]"><Trophy className="h-5 w-5" aria-hidden="true" /></span>
+          <span className="min-w-0"><span className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">Practice winner</span><span className="block truncate font-display text-xl sm:text-2xl">{winnerName}</span></span>
+          {bestOf === 3 ? <motion.span initial={reduce ? false : { opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={reduce ? { duration: 0 } : { delay: 0.35, duration: 0.35 }} className="hidden rounded-full bg-sky/10 px-3 py-1 text-xs font-bold text-sky sm:inline-flex">Best of 3 clinched</motion.span> : null}
+        </motion.div>
+      ) : null}
       <section className="mt-4 grid gap-3 sm:grid-cols-2">
         <PracticeSide name={homeName} score={current.home} games={wins.home} serving={serving === "home"} />
         <PracticeSide name={awayName} score={current.away} games={wins.away} serving={serving === "away"} />
@@ -111,7 +126,7 @@ export function PracticeMatch() {
 }
 
 function PracticeSide({ name, score, games, serving }: { name: string; score: number; games: number; serving: boolean }) {
-  return <article className={`rounded-3xl border p-5 text-center ${serving ? "border-accent/50 bg-accent/5" : "border-line bg-surface"}`}><div className="flex justify-between text-xs font-semibold uppercase tracking-[0.16em] text-muted"><span>{serving ? "Serving" : "Receiving"}</span><span>{games} {games === 1 ? "game" : "games"}</span></div><h2 className="mt-3 font-display text-3xl">{name}</h2><p className={`font-display text-[8rem] leading-none ${serving ? "text-accent" : "text-foreground"}`}>{score}</p></article>;
+  return <article className={`rounded-3xl border p-5 text-center ${serving ? "border-accent/50 bg-accent/5" : "border-line bg-surface"}`}><div className="flex justify-between text-xs font-semibold uppercase tracking-[0.16em] text-muted"><span>{serving ? "Serving" : "Receiving"}</span><span>{games} {games === 1 ? "game" : "games"}</span></div><h2 className="mt-3 font-display text-3xl">{name}</h2><AnimatedScore value={score} className={`font-display text-[8rem] leading-none ${serving ? "text-accent" : "text-foreground"}`} /></article>;
 }
 
 function randomPair(ids: string[]): [string, string] {
