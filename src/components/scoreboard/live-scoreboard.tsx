@@ -33,7 +33,7 @@ export function LiveScoreboard({ matchId }: { matchId: string }) {
   const awayName = sideName(match, "away", state.teams);
   const servingTeam = state.teams.find((team) => team.id === (match.serving === "home" ? match.homeId : match.awayId));
   const servingPlayer = teamPlayers(servingTeam, state.players).find((player) => player.id === match.servingPlayerId)?.name ?? "";
-  const winnerName = match.winnerId ? state.teams.find((team) => team.id === match.winnerId)?.name : null;
+  const winnerName = match.winnerId ? state.teams.find((team) => team.id === match.winnerId)?.name ?? null : null;
   const nextMatch = match.nextMatchId ? state.matches.find((item) => item.id === match.nextMatchId) : undefined;
 
   return (
