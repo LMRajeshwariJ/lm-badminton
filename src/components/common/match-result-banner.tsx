@@ -59,7 +59,7 @@ export function MatchResultBanner({
       ? `Winner advances to ${ROUND_LABEL[nextMatch.round]}`
       : match.round === "final"
         ? "Best-of-three champion"
-        : "Best-of-three winner recorded";
+        : "Best-of-three winner recorded"
     : null;
 
   return (
