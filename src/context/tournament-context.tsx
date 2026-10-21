@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type Dispatch } from "react";
 import { createInitialState } from "@/data/initial-state";
 import { SCHEMA_VERSION, STORAGE_KEY } from "@/lib/constants";
+import { normalizeExperienceSettings } from "@/lib/experience";
 import { tournamentReducer, type Action } from "@/reducers/tournament-reducer";
 import { fetchRemoteConfig, fetchRemoteMatches, hasSupabaseConfig, readAdminSession, readScoringSession, subscribeToRemoteMatches, writeRemoteAdminState, writeRemoteMatches, type RemoteMatch } from "@/lib/supabase";
 import type { AppState, ByeAssignment } from "@/types";
@@ -65,7 +66,7 @@ function getClientSnapshot() {
   }
   try {
     const parsed: unknown = JSON.parse(raw);
-    clientSnapshot = isStoredState(parsed) ? parsed : serverSnapshot;
+    clientSnapshot = isStoredState(parsed) ? normalizedState(parsed) : serverSnapshot;
   } catch {
     clientSnapshot = serverSnapshot;
   }
@@ -80,6 +81,14 @@ function persist(next: AppState) {
   emit();
 }
 
+function normalizedState(state: AppState): AppState {
+  return {
+    ...state,
+    tournament: { ...state.tournament, venueUrl: state.tournament.venueUrl ?? createInitialState().tournament.venueUrl },
+    experienceSettings: normalizeExperienceSettings(state.experienceSettings),
+  };
+}
+
 function applyRemoteRows(rows: RemoteMatch[]) {
   const state = getClientSnapshot();
   const matches = rows
@@ -89,9 +98,23 @@ function applyRemoteRows(rows: RemoteMatch[]) {
 }
 
 function applyRemoteConfig(config: Awaited<ReturnType<typeof fetchRemoteConfig>>) {
-  if (!config) return;
+  if (!config || config.state.schemaVersion !== SCHEMA_VERSION) return;
   const state = getClientSnapshot();
-  persist({ ...state, ...config.state, role: state.role, schemaVersion: SCHEMA_VERSION });
+  const liveById = new Map(state.matches.map((match) => [match.id, match]));
+  const fixtures = Array.isArray(config.state.matches) ? config.state.matches : state.matches;
+  const matches = fixtures.map((fixture) => {
+    const live = liveById.get(fixture.id);
+    if (!live) return fixture;
+    if (live.status !== "upcoming" || live.games.length > 0) return live;
+    return fixture;
+  });
+  persist(normalizedState({
+    ...state,
+    ...config.state,
+    matches,
+    role: state.role,
+    schemaVersion: SCHEMA_VERSION,
+  }));
 }
 
 function withDerivedSinglesByes(state: AppState): AppState {
@@ -110,7 +133,7 @@ const sharedWriteTypes = new Set<Action["type"]>([
   "START_MATCH", "SCORE_POINT", "UNDO_POINT", "PAUSE_MATCH", "RESUME_MATCH", "COMPLETE_GAME", "COMPLETE_MATCH",
 ]);
 const adminWriteTypes = new Set<Action["type"]>([
-  "RESET", "RESET_MATCH", "RESET_CATEGORY", "UPDATE_TEAM", "UPDATE_FIXTURE", "UPDATE_SCORING_RULES", "ASSIGN_BYE", "UPDATE_COURT", "UPDATE_TOURNAMENT",
+  "RESET", "RESET_MATCH", "RESET_CATEGORY", "ADD_TEAM", "UPDATE_TEAM", "DELETE_TEAM", "CREATE_FIXTURE", "UPDATE_FIXTURE", "DELETE_FIXTURE", "UPDATE_SCORING_RULES", "ASSIGN_BYE", "GENERATE_BRACKET", "ADD_COURT", "UPDATE_COURT", "DELETE_COURT", "UPDATE_TOURNAMENT", "UPDATE_EXPERIENCE_SETTINGS",
 ]);
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {

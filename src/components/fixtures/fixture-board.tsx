@@ -29,9 +29,7 @@ export function FixtureBoard() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <header className="max-w-2xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Order of play</p>
         <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Fixtures</h1>
-        <p className="mt-3 text-muted">Preliminary through the final. Filter by category or by what is on court right now.</p>
       </header>
       <div className="mt-6 flex flex-col gap-3">
         <FilterRow

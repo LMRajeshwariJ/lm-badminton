@@ -64,6 +64,12 @@ export function generateKnockout(
     .sort((a, b) => a.seed - b.seed || a.name.localeCompare(b.name));
 
   if (category === "mixed-doubles") {
+    if (meta.byeCount === 0) {
+      if (playIn.length !== meta.fieldSize) {
+        return { ok: false, reason: `Mixed doubles needs ${meta.fieldSize} teams in the round of 16.` };
+      }
+      return { ok: true, draw: buildMixedSixteenDraw(playIn) };
+    }
     if (playIn.length !== 4) {
       return { ok: false, reason: "Mixed doubles play-in must contain the 4 teams without a bye." };
     }
@@ -358,7 +364,7 @@ function roundState(matches: Match[]): StageProgress["state"] {
 function expectedCounts(category: CategoryId): Record<RoundId, number> {
   if (category === "mixed-doubles") {
     return {
-      preliminary: 2,
+      preliminary: 0,
       "round-of-16": 8,
       quarterfinal: 4,
       semifinal: 2,
@@ -378,6 +384,77 @@ function expectedSinglesByes(draw: Match[]) {
   const openingComplete = ["WS-M1", "WS-M2", "WS-M3", "WS-M4"].every((id) => draw.find((match) => match.id === id)?.status === "completed");
   const roundTwoComplete = ["WS-M5", "WS-M6"].every((id) => draw.find((match) => match.id === id)?.status === "completed");
   return roundTwoComplete ? 3 : openingComplete ? 2 : 1;
+}
+
+function buildMixedSixteenDraw(teams: Team[]): GeneratedDraw {
+  const ordered = [...teams].sort((a, b) => a.seed - b.seed || a.name.localeCompare(b.name));
+  const r16 = ordered.reduce<Match[]>((matches, team, index) => {
+    if (index % 2 === 1) return matches;
+    const matchNumber = index / 2 + 1;
+    const qfIndex = Math.ceil(matchNumber / 2);
+    const slot: Side = matchNumber % 2 === 1 ? "home" : "away";
+    matches.push(
+      blankMatch({
+        id: `MD-R16-${matchNumber}`,
+        category: "mixed-doubles",
+        round: "round-of-16",
+        homeId: team.id,
+        awayId: ordered[index + 1]?.id ?? null,
+        nextMatchId: `MD-QF${qfIndex}`,
+        nextSlot: slot,
+      }),
+    );
+    return matches;
+  }, []);
+  const qf = [1, 2, 3, 4].map((index) =>
+    blankMatch({
+      id: `MD-QF${index}`,
+      category: "mixed-doubles",
+      round: "quarterfinal",
+      homeId: null,
+      awayId: null,
+      homePlaceholder: `Winner R16-${index * 2 - 1}`,
+      awayPlaceholder: `Winner R16-${index * 2}`,
+      nextMatchId: index <= 2 ? "MD-SF1" : "MD-SF2",
+      nextSlot: index % 2 === 1 ? "home" : "away",
+    }),
+  );
+  const sf = [
+    blankMatch({
+      id: "MD-SF1",
+      category: "mixed-doubles",
+      round: "semifinal",
+      homeId: null,
+      awayId: null,
+      homePlaceholder: "Winner QF1",
+      awayPlaceholder: "Winner QF2",
+      nextMatchId: "MD-F",
+      nextSlot: "home",
+    }),
+    blankMatch({
+      id: "MD-SF2",
+      category: "mixed-doubles",
+      round: "semifinal",
+      homeId: null,
+      awayId: null,
+      homePlaceholder: "Winner QF3",
+      awayPlaceholder: "Winner QF4",
+      nextMatchId: "MD-F",
+      nextSlot: "away",
+    }),
+  ];
+  const final = [
+    blankMatch({
+      id: "MD-F",
+      category: "mixed-doubles",
+      round: "final",
+      homeId: null,
+      awayId: null,
+      homePlaceholder: "Winner SF1",
+      awayPlaceholder: "Winner SF2",
+    }),
+  ];
+  return { matches: [...r16, ...qf, ...sf, ...final], byes: [] };
 }
 
 function buildMixedDraw(byeTeams: Team[], playIn: Team[]): GeneratedDraw {
@@ -534,6 +611,8 @@ function blankMatch(input: {
   round: RoundId;
   homeId: string | null;
   awayId: string | null;
+  homePlaceholder?: string;
+  awayPlaceholder?: string;
   nextMatchId?: string | null;
   nextSlot?: Side | null;
   status?: MatchStatus;
@@ -546,6 +625,8 @@ function blankMatch(input: {
     status: input.status ?? "upcoming",
     homeId: input.homeId,
     awayId: input.awayId,
+    homePlaceholder: input.homePlaceholder,
+    awayPlaceholder: input.awayPlaceholder,
     courtId: null,
     scheduledAt: null,
     pointsPerGame: meta.pointsPerGame,

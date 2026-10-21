@@ -1,4 +1,5 @@
 import type { AppState, Match, TournamentConfigState } from "@/types";
+import { SCHEMA_VERSION } from "@/lib/constants";
 
 const SESSION_KEY = "lm-badminton-umpire-session";
 const REVISION_KEY = "lm-badminton-match-revisions";
@@ -115,15 +116,19 @@ export async function writeRemoteAdminState(previous: AppState, next: AppState) 
   if (!session) throw new Error("Your admin session expired. Re-enter the admin password.");
   const changed = next.matches.filter((match) => JSON.stringify(previous.matches.find((item) => item.id === match.id)) !== JSON.stringify(match));
   const state: TournamentConfigState = {
+    schemaVersion: SCHEMA_VERSION,
     tournament: next.tournament,
     players: next.players,
     teams: next.teams,
     courts: next.courts,
+    matches: next.matches,
     byes: next.byes,
+    experienceSettings: next.experienceSettings,
   };
   const result = await callFunction<{ matches: RemoteMatch[]; configRevision: number }>("admin-write", {
     config: { expectedRevision: Number(localStorage.getItem(CONFIG_REVISION_KEY) ?? 0), state },
     updates: changed.map((match) => ({ matchId: match.id, expectedRevision: getMatchRevision(match.id), state: match })),
+    deleteMatchIds: previous.matches.filter((match) => !next.matches.some((item) => item.id === match.id)).map((match) => match.id),
     releaseMatchIds: changed.filter((match) => match.status === "upcoming").map((match) => match.id),
   }, session.token);
   result.matches?.forEach(rememberRemoteMatch);
@@ -137,27 +142,10 @@ export async function claimMatch(matchId: string) {
   return result;
 }
 
-export async function renewMatchLease(matchId: string) {
-  const session = requiredScoringSession();
-  return callFunction<{ ok: boolean; leaseExpiresAt?: string }>("renew", { matchId, umpireId: session.umpireId }, session.token);
-}
-
 export async function adminReleaseMatch(matchId: string) {
   const session = readAdminSession();
   if (!session) throw new Error("Your admin session expired. Re-enter the admin password.");
   return callFunction<{ ok: boolean }>("admin-release", { matchId }, session.token);
-}
-
-export async function heartbeatAccessSession() {
-  const session = readScoringSession();
-  if (!session) return false;
-  await callFunction<{ ok: boolean }>("heartbeat", {}, session.token);
-  return true;
-}
-
-export async function logoutAccessSession() {
-  const sessions = [readUmpireSession(), readAdminSession()].filter((session): session is UmpireSession | AdminSession => Boolean(session));
-  await Promise.allSettled(sessions.map((session) => callFunction("logout", {}, session.token)));
 }
 
 export function getMatchRevision(matchId: string) {

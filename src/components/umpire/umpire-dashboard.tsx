@@ -64,12 +64,11 @@ export function UmpireDashboard() {
       <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-muted hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Public tournament</Link>
       <header className="mt-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-accent"><ShieldCheck className="h-4 w-4" /> Umpire desk</p>
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-accent"><ShieldCheck className="h-4 w-4" /> Umpire</p>
           <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Matches</h1>
-          <p className="mt-2 text-muted">The umpire who starts a match owns its scoring controls. Admins can override any match.</p>
         </div>
         <div className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-muted">
-          <span className="inline-flex items-center gap-2"><Radio className="h-4 w-4 text-accent" /> Public score sync is active</span>
+          <span className="inline-flex items-center gap-2"><Radio className="h-4 w-4 text-accent" /> Sync on</span>
         </div>
       </header>
       {message || syncError ? <p role="alert" className="mt-5 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{message || syncError}</p> : null}

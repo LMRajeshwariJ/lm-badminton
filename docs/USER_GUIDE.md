@@ -17,20 +17,18 @@ Select **Umpire**, enter the umpire password, and open a match from the Umpire d
 1. Choose a scheduled match and court.
 2. Select the first serving side. For doubles, also select the first server and receiver.
 3. Use the two **+1** buttons to record points.
-4. Use **Fault serve** when the server faults. The opponent receives the point and service.
-5. Use **Undo** to reverse the latest scoring action, or **Pause** when play stops.
+4. Use **Undo** to reverse the latest point, or **Pause** when play stops.
+5. Use the speaker button to mute scoring sounds on this device.
 
-The umpire who starts a match owns its scoring controls. Other umpires can view it, while an admin can override it. Up to five umpire sessions can be active.
+The umpire who starts a match owns its scoring controls. Other umpires can view it, while an admin can override it. The shared-code flow supports roughly ten scoring devices without individual accounts.
 
 ## Admin mode
 
 Select **Admin** and enter the admin password.
 
-- Edit tournament details, team names, players, and upcoming draw entries.
-- Set points, point cap, and best-of format globally, by category, or for one upcoming match.
-- Reset a match, category, or the full tournament.
-- Release umpire ownership when another umpire must take over.
-- Open the scoring desk to control any match.
-- Use **Practice scoring** for a random test match. Practice results never affect the tournament or database.
+- Edit tournament details, teams, players, and the draw.
+- Add or remove players/teams and matches.
+- Set scoring rules, reset matches, and release umpire ownership.
+- Use **Practice scoring** for a test match that does not affect the tournament.
 
-Up to two admin sessions can be active. Select **Exit umpire/admin** when finished.
+Select **Exit umpire/admin** when finished.

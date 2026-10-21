@@ -119,7 +119,7 @@ export function PracticeMatch() {
         <PracticeSide name={awayName} score={current.away} games={wins.away} serving={serving === "away"} />
       </section>
       <section className="mt-4 grid gap-3 sm:grid-cols-2"><Button className="min-h-24 rounded-2xl text-2xl" disabled={complete || !valid} onClick={() => award("home")}>+1 · {homeName}</Button><Button variant="sky" className="min-h-24 rounded-2xl text-2xl" disabled={complete || !valid} onClick={() => award("away")}>+1 · {awayName}</Button></section>
-      <div className="mt-4 flex flex-wrap justify-center gap-2 rounded-2xl border border-line bg-surface p-3"><Button variant="outline" size="lg" disabled={!history.length} onClick={undo}><RotateCcw className="h-4 w-4" /> Undo</Button><Button variant="outline" size="lg" disabled={complete || !valid} onClick={() => award(serving === "home" ? "away" : "home")}>Fault serve</Button><Button variant="ghost" size="lg" onClick={resetScore}>Reset practice match</Button></div>
+      <div className="mt-4 flex flex-wrap justify-center gap-2 rounded-2xl border border-line bg-surface p-3"><Button variant="outline" size="lg" disabled={!history.length} onClick={undo}><RotateCcw className="h-4 w-4" /> Undo</Button><Button variant="ghost" size="lg" onClick={resetScore}>Reset practice match</Button></div>
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4"><h2 className="font-display text-xl">Game scores</h2><div className="mt-3 flex flex-wrap gap-2">{games.map((game, index) => <span key={index} className="rounded-xl bg-white/10 px-3 py-2 text-sm">Game {index + 1} · {game.home}–{game.away}{game.winner ? ` · ${game.winner === "home" ? homeName : awayName}` : " · in play"}</span>)}</div></section>
     </div>
   );

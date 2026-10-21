@@ -23,8 +23,8 @@ function match(state: AppState, id = "MD-R16-4"): Match {
   return value;
 }
 
-function score(state: AppState, side: Side, extra: { action?: "rally" | "service-fault" | "fault"; faultBy?: Side; faultReason?: string } = {}) {
-  return tournamentReducer(state, { type: "SCORE_POINT", matchId: "MD-R16-4", side, ...extra });
+function score(state: AppState, side: Side) {
+  return tournamentReducer(state, { type: "SCORE_POINT", matchId: "MD-R16-4", side });
 }
 
 test("start initializes a doubles server and both service court positions", () => {
@@ -71,14 +71,12 @@ test("receiving side wins the rally, takes service, and selects the correct doub
   assert.deepEqual(active.positions?.away, { right: "T08-P1", left: "T08-P2" });
 });
 
-test("service fault awards the opponent a point and stores the reason", () => {
-  const next = score(start(), "home", { action: "service-fault", faultBy: "away", faultReason: "Foot fault" });
+test("manual point scoring records a normal point event", () => {
+  const next = score(start(), "home");
   const active = match(next);
   assert.equal(active.games[0].home, 1);
-  assert.equal(active.timeline.at(-1)?.type, "fault");
-  assert.equal(active.timeline.at(-1)?.action, "service-fault");
-  assert.equal(active.timeline.at(-1)?.faultBy, "away");
-  assert.equal(active.timeline.at(-1)?.faultReason, "Foot fault");
+  assert.equal(active.timeline.at(-1)?.type, "point");
+  assert.match(active.timeline.at(-1)?.text ?? "", /point/);
 });
 
 test("singles keeps one server identity and switches service using that player's court", () => {

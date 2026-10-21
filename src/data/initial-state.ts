@@ -4,6 +4,7 @@ import { players } from "@/data/players";
 import { teams } from "@/data/teams";
 import { tournament } from "@/data/tournament";
 import { SCHEMA_VERSION } from "@/lib/constants";
+import { DEFAULT_EXPERIENCE_SETTINGS } from "@/lib/experience";
 import type { AppState } from "@/types";
 
 export function createInitialState(): AppState {
@@ -15,6 +16,7 @@ export function createInitialState(): AppState {
     courts,
     matches,
     byes,
+    experienceSettings: DEFAULT_EXPERIENCE_SETTINGS,
     role: "audience",
   });
 }

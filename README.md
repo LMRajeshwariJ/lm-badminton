@@ -91,18 +91,19 @@ The browser contains only the project URL and public anon key. It can read `matc
 
    Restart `npm run dev`. Apply the same two public values as Vercel environment variables for Production and Preview when deploying.
 
-The migrations create one row per changed match and one compact tournament-configuration row, plus private ownership, session-limit, and rate-limit data. The roster and initial draw remain hardcoded; Supabase stores live score changes and admin overrides. Public clients can read these rows but cannot write them. The Edge Function validates role-specific sessions, limits active access to five umpires and two admins, checks match ownership, and uses expected revisions for atomic writes. Realtime publishes match and configuration changes.
+The migrations create one row per changed match and one compact tournament-configuration row, plus private match ownership and rate-limit data. The roster and initial draw remain hardcoded; Supabase stores live score changes, admin overrides, and global sound/animation switches. Public clients can read these rows but cannot write them. The Edge Function validates role-specific signed sessions, checks match ownership, and uses expected revisions for atomic writes. Realtime publishes match and configuration changes. The stateless shared-code flow comfortably supports roughly ten simultaneous scoring devices without maintaining an active-session registry.
 
 ## Scoring behavior
 
 - Admins can set the point target, point cap, and best-of-one/three/five format for all upcoming matches, a category, or one upcoming match.
 - A game requires the configured target and a two-point lead, with the configured cap ending a game.
-- **Fault serve** awards one point to the receiving side and transfers service. Undo restores the score and service state.
+- Umpires award points manually. Undo restores the score, service state, and player positions.
 - Singles service court is derived from the serving player's score parity. Doubles tracks each pair's right/left player positions. The serving pair swaps positions when it wins a point on serve; a receiving pair takes service from the player in the court matching its score parity.
 - At match start, the umpire chooses the serving side and, for doubles, first server and receiver in the right court.
 - Undo restores score, serve, player positions, game/match state, and bracket advancement. Undo is blocked if the advanced next match has started, which avoids silently corrupting a downstream result.
 - The umpire who starts a match remains its owner and is the only umpire who can change it. An admin can score any match and can reset results when ownership needs intervention.
 - `/admin/practice` starts isolated random matches for checking scoring. Practice scores never write to Supabase or affect the draw.
+- Score and victory sounds use the Web Audio API. Umpire mute and spectator notification preferences stay in `localStorage`; global sound and animation settings share the existing configuration record.
 
 ## Tests and checks
 
@@ -113,7 +114,7 @@ npm run lint
 npm run build
 ```
 
-The tests exercise badminton score thresholds, start/pause/resume, fault logging, doubles service rotation, undo, completion, and bracket advancement. Cross-device realtime, Edge Function authorization, and lease races require a configured Supabase project and should also be checked using the manual steps below.
+The tests exercise badminton score thresholds, start/pause/resume, manual scoring, doubles service rotation, undo, completion, and bracket advancement. Cross-device realtime, Edge Function authorization, and ownership races require a configured Supabase project and should also be checked using the manual steps below.
 
 ## Manual test: two umpires and a spectator
 
@@ -121,9 +122,9 @@ Use three separate browser profiles (and optionally a phone), all pointed at the
 
 1. In Browser 1, choose **Umpire**, enter an invalid code and confirm it is rejected. Enter the correct code and open the Umpire desk.
 2. Start a scheduled match. Confirm the details, choose Court 1, pick the first serving side/player, and begin scoring. It should open the full-screen console and appear on the public Live page.
-3. In Browser 2, enter the umpire code and start a different scheduled match on Court 2. Award points in both consoles and confirm the scores advance independently. Repeat with up to five active umpire sessions; a sixth must be rejected.
+3. In Browser 2, enter the umpire code and start a different scheduled match on Court 2. Award points in both consoles and confirm the scores advance independently. Repeat across the available devices; the design targets roughly ten simultaneous scorers on different matches.
 4. Open Browser 3 to `/live`. Confirm both courts appear. Award a point in Browser 1 and verify Browser 3 updates without refresh. Open a match detail page and verify the current score, server, game scores, and history.
-5. Record a fault serve. Confirm the opponent receives one point, takes service, and the reason appears in history. Undo it and check the score and serving position return.
+5. Mute one umpire device, award points on both devices, and confirm only that device stays silent. Undo a point and check the score and serving position return.
 6. Pause and resume one match. Refresh its console; it should recover the latest score. Try the match from another umpire session and confirm it stays read-only. Sign in as admin and confirm the admin can override it.
 7. Score through a game and then a match. Confirm game winner, completion state, result visibility, bracket advancement, and standings. Undo the match-winning point before the next match starts and confirm the bracket slot clears. After the next match has started, confirm undo is blocked.
 8. Disconnect one spectator browser from the network, score additional points, reconnect, and confirm it receives the latest database score after the Realtime reconnect. Refresh the spectator page midway through another game and confirm it loads the saved current score.
@@ -137,9 +138,9 @@ For this personal deployment, a Vercel personal project is sufficient. Keep the 
 
 ## Current limits
 
-- The tournament roster and bracket topology remain hardcoded in `src/data`; bracket edits are not managed through the umpire UI.
+- The default roster and draw start in `src/data`. Admins can edit teams, players, fixtures, and courts from the admin panel; those changes sync through Supabase when configured.
 - This shared access code is suitable for a small event, not identity-grade authentication. Anyone who knows it can authorize a browser until their session expires.
-- Shared passwords identify a browser session rather than a named person. Five active umpire sessions and two active admin sessions are allowed; an inactive session stops counting after ten minutes, while its signed token remains valid for up to twelve hours.
+- Shared passwords identify a browser session rather than a named person. Signed sessions remain valid for up to twelve hours, and no exact active-device limit is enforced.
 - Match ownership stays with the umpire session that started it. If that browser session is lost, an admin can override or reset the match.
 - Browser-side Realtime uses Supabase's Phoenix WebSocket protocol v2 directly. If Supabase changes that protocol, update the subscription adapter in `src/lib/supabase.ts`.
 - Deployment remains a manual operator action. No Supabase project or Vercel deployment is configured by this repository alone.

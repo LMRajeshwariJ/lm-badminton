@@ -41,15 +41,12 @@ export interface GameScore {
 
 export interface TimelineEvent {
   id: string;
-  type: "start" | "point" | "fault" | "undo" | "game" | "pause" | "resume" | "match";
+  type: "start" | "point" | "undo" | "game" | "pause" | "resume" | "match";
   text: string;
   at: string;
   side?: Side;
   gameIndex?: number;
   score?: { home: number; away: number };
-  action?: "rally" | "service-fault" | "fault";
-  faultBy?: Side;
-  faultReason?: string;
 }
 
 export interface PlayerPositions {
@@ -103,11 +100,26 @@ export interface Match {
 }
 
 export interface TournamentConfigState {
+  schemaVersion: number;
   tournament: Tournament;
   players: Player[];
   teams: Team[];
   courts: Court[];
+  matches: Match[];
   byes: ByeAssignment[];
+  experienceSettings: ExperienceSettings;
+}
+
+export interface ExperienceSettings {
+  masterSound: boolean;
+  pointSound: boolean;
+  gameSound: boolean;
+  matchSound: boolean;
+  championSound: boolean;
+  volume: number;
+  animations: boolean;
+  confetti: boolean;
+  victoryCelebrations: boolean;
 }
 
 export interface ByeAssignment {
@@ -127,6 +139,7 @@ export interface Tournament {
   startDate: string;
   endDate: string;
   venue: string;
+  venueUrl: string;
   city: string;
   description: string;
 }
@@ -139,5 +152,6 @@ export interface AppState {
   courts: Court[];
   matches: Match[];
   byes: ByeAssignment[];
+  experienceSettings: ExperienceSettings;
   role: Role;
 }

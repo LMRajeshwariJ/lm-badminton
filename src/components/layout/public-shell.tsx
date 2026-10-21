@@ -4,11 +4,12 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { useTournament } from "@/context/tournament-context";
+import { TournamentNotifications } from "@/components/common/tournament-notifications";
 
 const roleCopy = {
   audience: null,
-  umpire: "Umpire mode is active. Open the Umpire desk to score matches.",
-  admin: "Admin mode is active. Open Manage to update the draw or reset matches.",
+  umpire: "Umpire mode · open Matches to score.",
+  admin: "Admin mode · open Manage to edit the draw.",
 } as const;
 
 export function PublicShell({ children }: { children: React.ReactNode }) {
@@ -29,6 +30,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
       </main>
       <SiteFooter />
       <MobileNav />
+      <TournamentNotifications />
     </div>
   );
 }

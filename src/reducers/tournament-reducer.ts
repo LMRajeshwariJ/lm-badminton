@@ -10,6 +10,7 @@ import type {
   Match,
   Player,
   Role,
+  ExperienceSettings,
   ScoreHistoryEntry,
   Side,
   Team,
@@ -34,7 +35,7 @@ export type Action =
   | { type: "GENERATE_BRACKET"; category: CategoryId; byeTeamIds?: string[] }
   | { type: "ASSIGN_COURT"; matchId: string; courtId: string }
   | { type: "START_MATCH"; matchId: string; courtId: string; pointsPerGame: number; maxPoints?: number; servingSide?: Side; servingPlayerId?: string; receivingPlayerId?: string }
-  | { type: "SCORE_POINT"; matchId: string; side: Side; action?: "rally" | "service-fault" | "fault"; faultBy?: Side; faultReason?: string }
+  | { type: "SCORE_POINT"; matchId: string; side: Side }
   | { type: "UNDO_POINT"; matchId: string }
   | { type: "PAUSE_MATCH"; matchId: string }
   | { type: "RESUME_MATCH"; matchId: string }
@@ -43,7 +44,8 @@ export type Action =
   | { type: "ADD_COURT"; court: Court }
   | { type: "UPDATE_COURT"; court: Court }
   | { type: "DELETE_COURT"; courtId: string }
-  | { type: "UPDATE_TOURNAMENT"; patch: Partial<AppState["tournament"]> };
+  | { type: "UPDATE_TOURNAMENT"; patch: Partial<AppState["tournament"]> }
+  | { type: "UPDATE_EXPERIENCE_SETTINGS"; settings: ExperienceSettings };
 
 export function tournamentReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -51,12 +53,16 @@ export function tournamentReducer(state: AppState, action: Action): AppState {
       return action.state.schemaVersion === SCHEMA_VERSION ? structuredClone(action.state) : state;
     case "SYNC_MATCHES": {
       const incoming = new Map(action.matches.map((match) => [match.id, match]));
-      return { ...state, matches: state.matches.map((match) => incoming.get(match.id) ?? match) };
+      const merged = state.matches.map((match) => incoming.get(match.id) ?? match);
+      for (const match of action.matches) {
+        if (!state.matches.some((item) => item.id === match.id)) merged.push(match);
+      }
+      return { ...state, matches: merged };
     }
     case "SET_ROLE":
       return { ...state, role: action.role };
     case "RESET":
-      return { ...createInitialState(), role: state.role };
+      return { ...createInitialState(), role: state.role, experienceSettings: state.experienceSettings };
     case "RESET_MATCH":
       return resetMatch(state, action.matchId);
     case "RESET_CATEGORY":
@@ -84,7 +90,7 @@ export function tournamentReducer(state: AppState, action: Action): AppState {
     case "START_MATCH":
       return startMatch(state, action);
     case "SCORE_POINT":
-      return scorePoint(state, action.matchId, action.side, action);
+      return scorePoint(state, action.matchId, action.side);
     case "UNDO_POINT":
       return undoPoint(state, action.matchId);
     case "PAUSE_MATCH":
@@ -107,6 +113,8 @@ export function tournamentReducer(state: AppState, action: Action): AppState {
       return deleteCourt(state, action.courtId);
     case "UPDATE_TOURNAMENT":
       return { ...state, tournament: { ...state.tournament, ...action.patch, id: state.tournament.id } };
+    case "UPDATE_EXPERIENCE_SETTINGS":
+      return { ...state, experienceSettings: action.settings };
     default:
       return state;
   }
@@ -163,6 +171,8 @@ function updateTeam(state: AppState, team: Team, players?: Player[]) {
 }
 
 function deleteTeam(state: AppState, teamId: string) {
+  const team = state.teams.find((item) => item.id === teamId);
+  if (!team) return state;
   const blocked = state.matches.some(
     (match) =>
       (match.homeId === teamId || match.awayId === teamId) &&
@@ -172,6 +182,7 @@ function deleteTeam(state: AppState, teamId: string) {
   return {
     ...state,
     teams: state.teams.filter((team) => team.id !== teamId),
+    players: state.players.filter((player) => !team.playerIds.includes(player.id)),
     byes: state.byes.filter((bye) => bye.teamId !== teamId),
     matches: state.matches.map((match) => {
       if (match.status !== "upcoming") return match;
@@ -357,7 +368,6 @@ function scorePoint(
   state: AppState,
   matchId: string,
   side: Side,
-  action: Extract<Action, { type: "SCORE_POINT" }> = { type: "SCORE_POINT", matchId, side },
 ) {
   const match = state.matches.find((item) => item.id === matchId);
   if (!match || match.status !== "live" || match.paused || !match.homeId || !match.awayId) return state;
@@ -377,19 +387,13 @@ function scorePoint(
   const winner = gameWinner(scored.home, scored.away, config);
   games[index] = { ...scored, winner };
   const teamName = teamLabel(state, side === "home" ? match.homeId : match.awayId);
-  const actionType = action.action ?? "rally";
-  const pointText = actionType === "rally"
-    ? `${teamName} point. ${scored.home}–${scored.away}`
-    : `${actionType === "service-fault" ? "Service fault" : "Fault"}${action.faultBy ? ` by ${teamLabel(state, action.faultBy === "home" ? match.homeId : match.awayId)}` : ""}. ${teamName} awarded the point. ${scored.home}–${scored.away}`;
+  const pointText = `${teamName} point. ${scored.home}–${scored.away}`;
   let timeline: TimelineEvent[] = [
     ...match.timeline,
-    event(match.id, actionType === "rally" ? "point" : "fault", pointText, {
+    event(match.id, "point", pointText, {
       side,
       gameIndex: index,
       score: { home: scored.home, away: scored.away },
-      action: actionType,
-      faultBy: action.faultBy,
-      faultReason: action.faultReason,
     }),
   ];
   const positionsAfter = { ...(match.positions ?? {}) };
@@ -516,7 +520,6 @@ function completeGame(state: AppState, matchId: string) {
     replaceMatch(state, { ...match, games: games.slice(0, -1).concat([{ ...current, [side]: Math.max(0, current[side] - 1) }]) }),
     matchId,
     side,
-    { type: "SCORE_POINT", matchId, side },
   );
 }
 
@@ -613,7 +616,7 @@ function event(
   matchId: string,
   type: TimelineEvent["type"],
   text: string,
-  extra?: Pick<TimelineEvent, "side" | "gameIndex" | "score" | "action" | "faultBy" | "faultReason">,
+  extra?: Pick<TimelineEvent, "side" | "gameIndex" | "score">,
 ): TimelineEvent {
   return {
     id: `${matchId}-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

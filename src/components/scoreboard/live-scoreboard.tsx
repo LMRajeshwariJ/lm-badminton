@@ -66,6 +66,7 @@ export function LiveScoreboard({ matchId }: { matchId: string }) {
             serving={match.status === "live" && match.serving === "home"}
             servingPlayer={match.serving === "home" ? servingPlayer : ""}
             games={wins.home}
+            animations={state.experienceSettings.animations}
           />
           <ScoreSide
             name={awayName}
@@ -74,6 +75,7 @@ export function LiveScoreboard({ matchId }: { matchId: string }) {
             serving={match.status === "live" && match.serving === "away"}
             servingPlayer={match.serving === "away" ? servingPlayer : ""}
             games={wins.away}
+            animations={state.experienceSettings.animations}
             edge
           />
         </div>
@@ -88,7 +90,7 @@ export function LiveScoreboard({ matchId }: { matchId: string }) {
         <section className="rounded-3xl border border-line bg-surface p-5">
           <h2 className="font-display text-2xl">Games</h2>
           {finishedGames(match).length === 0 && match.status !== "live" ? (
-            <p className="mt-3 text-sm text-muted">This fixture has not started. The umpire will set the court and the points before the first rally.</p>
+            <p className="mt-3 text-sm text-muted">Not started yet.</p>
           ) : (
             <ul className="mt-4 space-y-2">
               {match.games.map((game, index) => (
@@ -103,13 +105,13 @@ export function LiveScoreboard({ matchId }: { matchId: string }) {
             </ul>
           )}
           <p className="mt-4 text-sm text-muted">
-            Game wins {wins.home}–{wins.away}. Best of {match.bestOf}, so the first to {Math.ceil(match.bestOf / 2)} games takes the match.
+            Games {wins.home}–{wins.away} · best of {match.bestOf}
           </p>
         </section>
         <section className="rounded-3xl border border-line bg-surface p-5">
           <h2 className="font-display text-2xl">Timeline</h2>
           {match.timeline.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">The rally log starts when the match does.</p>
+            <p className="mt-3 text-sm text-muted">No events yet.</p>
           ) : (
             <ol className="mt-4 space-y-3">
               {match.timeline.map((item) => (
@@ -136,6 +138,7 @@ function ScoreSide({
   serving,
   servingPlayer,
   games,
+  animations,
   edge = false,
 }: {
   name: string;
@@ -144,6 +147,7 @@ function ScoreSide({
   serving: boolean;
   servingPlayer: string;
   games: number;
+  animations: boolean;
   edge?: boolean;
 }) {
   return (
@@ -153,7 +157,7 @@ function ScoreSide({
       {players ? <p className="mt-1 text-sm text-muted">{players}</p> : null}
       <div className="mt-6 flex items-center justify-center gap-3 font-display text-7xl sm:text-8xl">
         {serving ? <ShuttleIcon className="h-8 w-8 text-accent" /> : <span className="w-8" />}
-        {score === null ? <span className="text-muted">–</span> : <AnimatedScore value={score} />}
+        {score === null ? <span className="text-muted">–</span> : <AnimatedScore value={score} enabled={animations} />}
       </div>
     </div>
   );

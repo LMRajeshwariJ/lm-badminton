@@ -8,7 +8,7 @@ export const tournament: Tournament = {
   startDate: "2026-10-09",
   endDate: "2026-10-10",
   venue: "LM Sports Hall",
+  venueUrl: "https://maps.app.goo.gl/67j1sYXmcc5QL8dp6",
   city: "Tower B · Level 3",
-  description:
-    "The office badminton championship. Mixed doubles and women's singles, played as knockout draws across three courts.",
+  description: "Mixed doubles and women's singles.",
 };

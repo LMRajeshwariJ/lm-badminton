@@ -18,8 +18,36 @@
   }
 }
 
+.toast-enter {
+  animation: toast-enter 240ms ease-out both;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -12px;
+  width: 7px;
+  height: 12px;
+  border-radius: 2px;
+  animation: confetti-fall 1.8s ease-out both;
+}
+
+@keyframes toast-enter {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 0; transform: translateY(0) rotate(0deg); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(130px) rotate(280deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .live-ping {
+    animation: none;
+  }
+  .toast-enter,
+  .confetti-piece {
     animation: none;
   }
 }

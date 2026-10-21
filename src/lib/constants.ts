@@ -1,7 +1,7 @@
 import type { CategoryId, RoundId } from "@/types";
 
-export const SCHEMA_VERSION = 3;
-export const STORAGE_KEY = "lm-badminton-v3";
+export const SCHEMA_VERSION = 4;
+export const STORAGE_KEY = "lm-badminton-v4";
 
 export const CATEGORY_META: Record<
   CategoryId,
@@ -23,8 +23,8 @@ export const CATEGORY_META: Record<
     maxPoints: 21,
     bestOf: 3,
     entryNoun: "teams",
-    fieldSize: 18,
-    byeCount: 14,
+    fieldSize: 16,
+    byeCount: 0,
   },
   "womens-singles": {
     label: "Women's Singles",
@@ -57,7 +57,7 @@ export const ROUND_ORDER: RoundId[] = [
 ];
 
 export function roundsFor(category: CategoryId): RoundId[] {
-  if (category === "mixed-doubles") return [...ROUND_ORDER];
+  if (category === "mixed-doubles") return ["round-of-16", "quarterfinal", "semifinal", "final"];
   return ["preliminary", "quarterfinal", "semifinal", "final"];
 }
 

@@ -12,18 +12,16 @@ export function LiveIndex() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <header className="max-w-2xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Happening now</p>
-        <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Live matches</h1>
-        <p className="mt-3 text-muted">{hasSupabaseConfig() ? "Scores update live across connected browsers and devices." : "Shared scores are unavailable until Supabase is configured."}</p>
+        <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Live</h1>
       </header>
       {hasSupabaseConfig() && (!syncConnected || syncError) ? (
         <p role="status" className="mt-5 rounded-2xl border border-sky/20 bg-sky/10 px-4 py-3 text-sm text-sky">
-          {syncError ?? (syncReady ? "Live connection is reconnecting. Scores will catch up automatically." : "Loading the latest shared scores…")}
+          {syncError ?? (syncReady ? "Reconnecting…" : "Loading scores…")}
         </p>
       ) : null}
       {live.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title="No matches are live" body="When an umpire starts a match, it will show up here with the court and the current game." />
+          <EmptyState title="No live matches" body="Live matches appear here when scoring starts." />
         </div>
       ) : (
         <div className="mt-8 grid gap-4 lg:grid-cols-2">

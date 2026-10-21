@@ -20,11 +20,7 @@ export function StandingsBoard({ preview = false }: { preview?: boolean }) {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <header className="max-w-2xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Knockout board</p>
         <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Standings</h1>
-        <p className="mt-3 text-muted">
-          This is not a round-robin table. Teams are ranked by how far they have gone, then by point difference.
-        </p>
       </header>
       <Tabs defaultValue="mixed-doubles" className="mt-8">
         <TabsList>

@@ -2,11 +2,11 @@ import type { Team } from "@/types";
 
 const doubles = [
   ["T01", "Arctic Hunter"], ["T02", "Drop Shot Duo"], ["T03", "Smashers"],
-  ["T04", "LM Drops"], ["T05", "Infra boys"], ["T06", "Crunch & Munch"],
-  ["T07", "JustDoIt"], ["T08", "integrated collection"], ["T09", "Smash Bros"],
-  ["T10", "Fault in our serves"], ["T11", "Drop Shot Devils"], ["T12", "Micromanagers"],
-  ["T13", "Pimpri Boys"], ["T14", "Error 404: Skills Not Found"], ["T15", "Pacific Hunter"],
-  ["T16", "Blitz"], ["T17", "Warriors"], ["T18", "Drop Shot Specialists"],
+  ["T04", "LM Drops"], ["T05", "Infra Boys"], ["T06", "JustDoIt"],
+  ["T07", "Smash Bros"], ["T08", "Fault in Our Serves"], ["T09", "Drop Shot Devils"],
+  ["T10", "Micromanagers"], ["T11", "Crunch & Munch"], ["T12", "Pimpri Boys"],
+  ["T13", "Pacific Hunter"], ["T14", "Integrated Collection"], ["T15", "Blitz"],
+  ["T16", "Drop Shot Specialists"],
 ] as const;
 
 const singles = [

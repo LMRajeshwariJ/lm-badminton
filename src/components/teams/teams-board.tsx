@@ -12,9 +12,7 @@ export function TeamsBoard() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <header className="max-w-2xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Field</p>
         <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Teams</h1>
-        <p className="mt-3 text-muted">Eighteen mixed doubles pairs and nine women&apos;s singles players. Every name here is in the draw.</p>
       </header>
       <Tabs defaultValue="mixed-doubles" className="mt-8">
         <TabsList>

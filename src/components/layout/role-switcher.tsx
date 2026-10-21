@@ -1,17 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useTournament } from "@/context/tournament-context";
 import {
   clearAdminSession,
   clearUmpireSession,
-  heartbeatAccessSession,
   hasSupabaseConfig,
   readAdminSession,
   readUmpireSession,
-  logoutAccessSession,
   verifyAdminCode,
   verifyUmpireCode,
 } from "@/lib/supabase";
@@ -23,21 +21,6 @@ export function RoleSwitcher() {
   const [error, setError] = useState("");
   const [verifying, setVerifying] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    if (state.role === "audience") return;
-    const heartbeat = () => void heartbeatAccessSession().catch((reason: unknown) => {
-      const message = reason instanceof Error ? reason.message : "";
-      if (!/session limit|session expired|inactive/i.test(message)) return;
-      clearUmpireSession();
-      clearAdminSession();
-      dispatch({ type: "SET_ROLE", role: "audience" });
-      router.push("/");
-    });
-    heartbeat();
-    const timer = setInterval(heartbeat, 4 * 60_000);
-    return () => clearInterval(timer);
-  }, [dispatch, router, state.role]);
 
   function enter(role: "umpire" | "admin") {
     const active = role === "umpire" ? readUmpireSession() : readAdminSession();
@@ -70,7 +53,6 @@ export function RoleSwitcher() {
   }
 
   function exit() {
-    void logoutAccessSession();
     clearUmpireSession();
     clearAdminSession();
     dispatch({ type: "SET_ROLE", role: "audience" });
@@ -90,9 +72,7 @@ export function RoleSwitcher() {
       {requestedRole ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4" onMouseDown={(event) => event.target === event.currentTarget && setRequestedRole(null)}>
           <section role="dialog" aria-modal="true" className="w-full max-w-md rounded-3xl border border-line bg-surface p-6 shadow-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">{requestedRole} access</p>
-            <h2 className="mt-2 font-display text-3xl">Enter password</h2>
-            <p className="mt-2 text-sm text-muted">The session stays in this browser tab for up to 12 hours.</p>
+            <h2 className="mt-2 font-display text-3xl">Enter {requestedRole} password</h2>
             <form onSubmit={submit} className="mt-5">
               <label className="text-sm font-semibold" htmlFor="access-code">Password</label>
               <input id="access-code" type="password" autoComplete="off" autoFocus value={code} onChange={(event) => setCode(event.target.value)} className="mt-2 w-full rounded-xl border border-line bg-background px-4 py-3 outline-none focus:border-accent" disabled={!hasSupabaseConfig() || verifying} />

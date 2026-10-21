@@ -6,6 +6,7 @@ import { RoleSwitcher } from "@/components/layout/role-switcher";
 import { ShuttleIcon } from "@/components/common/shuttle";
 import { cn } from "@/lib/utils";
 import { useTournament } from "@/context/tournament-context";
+import { NotificationPreferenceButton } from "@/components/common/tournament-notifications";
 
 const links = [
   { href: "/", label: "Home" },
@@ -46,7 +47,7 @@ export function SiteHeader() {
           })}
         </nav>
         <div className="ml-auto">
-          <RoleSwitcher />
+          <div className="flex items-center gap-1">{state.role === "audience" ? <NotificationPreferenceButton /> : null}<RoleSwitcher /></div>
         </div>
       </div>
     </header>

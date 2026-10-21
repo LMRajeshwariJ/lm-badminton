@@ -14,11 +14,7 @@ export function BracketView() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <header className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Knockout schedule</p>
-        <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Draw & fixtures</h1>
-        <p className="mt-3 text-muted">
-          Matchups, live scores, results, and the route to each title in one place.
-        </p>
+        <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-6xl">Draw</h1>
       </header>
       <Tabs defaultValue="mixed-doubles" className="mt-8">
         <TabsList>
@@ -41,17 +37,19 @@ function CategoryBracket({ category }: { category: CategoryId }) {
   const matches = state.matches.filter((match) => match.category === category);
   const byes = state.byes.filter((bye) => bye.category === category);
   const visible = matches.filter((match) => state.role !== "audience" || match.round === "preliminary" || match.round === "round-of-16" || Boolean(match.homeId && match.awayId));
+  const hasPrelim = visible.some((match) => match.round === "preliminary") || byes.length > 0;
   const rounds = mainRounds(category).filter((item) => visible.some((match) => match.round === item));
-  const [round, setRound] = useState<RoundId>("preliminary");
+  const mobileRounds = hasPrelim ? (["preliminary", ...rounds] as RoundId[]) : rounds;
+  const [round, setRound] = useState<RoundId>(mobileRounds[0] ?? "round-of-16");
   const final = matches.find((match) => match.round === "final");
   const champion = final?.winnerId ? state.teams.find((team) => team.id === final.winnerId) : undefined;
 
   return (
     <div className="space-y-6">
-      <Preliminary matches={visible} byes={byes} teams={state.teams} players={state.players} />
+      {hasPrelim ? <Preliminary matches={visible} byes={byes} teams={state.teams} players={state.players} /> : null}
       <div className="lg:hidden">
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {(["preliminary", ...rounds] as RoundId[]).map((item) => (
+          {mobileRounds.map((item) => (
             <button
               key={item}
               type="button"
@@ -96,10 +94,7 @@ function Preliminary({
     <section className="rounded-3xl border border-line bg-surface p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-display text-2xl">Opening round & byes</h2>
-          <p className="text-sm text-muted">
-            {prelim.length} {prelim.length === 1 ? "match" : "matches"} · {byes.length} byes
-          </p>
+          <h2 className="font-display text-2xl">Opening round</h2>
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">

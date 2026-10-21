@@ -20,20 +20,15 @@ Deno.serve(async (request: Request) => {
     if (operation === "verify") return await verifyAccess(request, String(body.code ?? ""), body.access === "admin" ? "admin" : "umpire");
 
     const claims = await readSession(request);
-    if (operation === "logout") {
-      await rpc<boolean>("revoke_access_session", { p_session_id: claims.sub });
-      return json({ ok: true });
-    }
-    const active = await rpc<boolean>("touch_access_session", { p_session_id: claims.sub, p_role: claims.role });
-    if (!active) return json({ error: `The ${claims.role} session limit has been reached. Try again after another session exits.` }, 409);
-    if (operation === "heartbeat") return json({ ok: true });
     if (operation === "admin-write") {
       if (claims.role !== "admin") return json({ error: "An admin session is required." }, 403);
       const updates = Array.isArray(body.updates) ? body.updates : [];
+      const deleteMatchIds = Array.isArray(body.deleteMatchIds) ? body.deleteMatchIds.slice(0, 30).map(String) : [];
       if (updates.length > 30 || !body.config) return json({ error: "Invalid admin update." }, 400);
       const result = await rpc<{ matches: unknown[]; configRevision: number }>("admin_write_tournament_state", {
         p_config: body.config,
         p_updates: updates,
+        p_delete_match_ids: deleteMatchIds,
       });
       const releaseMatchIds = Array.isArray(body.releaseMatchIds) ? body.releaseMatchIds.slice(0, 30) : [];
       await Promise.all(releaseMatchIds.map((matchId: unknown) => rpc<boolean>("admin_release_match_lease", { p_match_id: String(matchId) })));
@@ -47,11 +42,6 @@ Deno.serve(async (request: Request) => {
       if (claims.role === "admin") return json({ ok: true, adminOverride: true });
       const ok = await rpc<boolean>("claim_match_lease", { p_match_id: matchId, p_umpire_id: claims.sub });
       return ok ? json({ ok, leaseExpiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString() }) : json({ error: "Only the umpire who started this match can change it. An admin can override it." }, 409);
-    }
-    if (operation === "renew") {
-      if (claims.role === "admin") return json({ ok: true, adminOverride: true });
-      const ok = await rpc<boolean>("renew_match_lease", { p_match_id: matchId, p_umpire_id: claims.sub });
-      return ok ? json({ ok, leaseExpiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString() }) : json({ error: "Only the umpire who started this match can change it." }, 409);
     }
     if (operation === "admin-release") {
       if (claims.role !== "admin") return json({ error: "An admin session is required." }, 403);
@@ -96,15 +86,6 @@ async function verifyAccess(request: Request, code: string, access: "umpire" | "
   if (!constantTimeEqual(suppliedHash, hash)) return json({ error: "That access code is not correct." }, 401);
   const umpireId = crypto.randomUUID();
   const expiresAt = Date.now() + 12 * 60 * 60 * 1000;
-  const registered = await rpc<boolean>("register_access_session", {
-    p_session_id: umpireId,
-    p_role: access,
-    p_expires_at: new Date(expiresAt).toISOString(),
-  });
-  if (!registered) {
-    const maximum = access === "admin" ? 2 : 5;
-    return json({ error: `All ${maximum} ${access} sessions are in use. Ask someone to exit, or try again in a few minutes.` }, 409);
-  }
   const token = await signSession({ sub: umpireId, role: access, iat: Math.floor(Date.now() / 1000), exp: Math.floor(expiresAt / 1000) }, env.sessionSecret);
   return json({ token, umpireId, expiresAt, role: access });
 }
