@@ -142,12 +142,6 @@ export async function claimMatch(matchId: string) {
   return result;
 }
 
-export async function adminReleaseMatch(matchId: string) {
-  const session = readAdminSession();
-  if (!session) throw new Error("Your admin session expired. Re-enter the admin password.");
-  return callFunction<{ ok: boolean }>("admin-release", { matchId }, session.token);
-}
-
 export function getMatchRevision(matchId: string) {
   if (typeof window === "undefined") return 0;
   return readRevisions()[matchId] ?? 0;

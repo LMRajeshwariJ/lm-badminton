@@ -20,7 +20,7 @@ Select **Umpire**, enter the umpire password, and open a match from the Umpire d
 4. Use **Undo** to reverse the latest point, or **Pause** when play stops.
 5. Use the speaker button to mute scoring sounds on this device.
 
-The umpire who starts a match owns its scoring controls. Other umpires can view it, while an admin can override it. The shared-code flow supports roughly ten scoring devices without individual accounts.
+Umpires sign in with one shared login and can start, resume, or score any match. There is no per-umpire match limit. Use the same login across umpire devices; the revision check protects match data if two devices update the same score at nearly the same time.
 
 ## Admin mode
 
@@ -28,7 +28,7 @@ Select **Admin** and enter the admin password.
 
 - Edit tournament details, teams, players, and the draw.
 - Add or remove players/teams and matches.
-- Set scoring rules, reset matches, and release umpire ownership.
+- Set scoring rules and reset matches.
 - Use **Practice scoring** for a test match that does not affect the tournament.
 
 Select **Exit umpire/admin** when finished.

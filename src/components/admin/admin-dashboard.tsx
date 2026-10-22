@@ -7,13 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTournament } from "@/context/tournament-context";
 import { CATEGORY_META, ROUND_LABEL } from "@/lib/constants";
 import { playTournamentSound } from "@/lib/experience";
-import { adminReleaseMatch, readAdminSession } from "@/lib/supabase";
+import { readAdminSession } from "@/lib/supabase";
 import type { CategoryId, ExperienceSettings, Match, Player, RoundId, Team } from "@/types";
 
 export function AdminDashboard() {
   const { state, dispatch, syncPending, syncError } = useTournament();
   const [details, setDetails] = useState(state.tournament);
-  const [accessMessage, setAccessMessage] = useState("");
   const authorized = state.role === "admin" && Boolean(readAdminSession());
 
   if (!authorized) {
@@ -27,7 +26,6 @@ export function AdminDashboard() {
         <div className="mt-5 flex flex-wrap gap-2"><Button asChild><Link href="/umpire">Open scoring desk</Link></Button><Button asChild variant="outline"><Link href="/admin/practice">Practice scoring</Link></Button></div>
         {syncPending ? <p className="mt-3 text-sm text-sky">Saving…</p> : null}
         {syncError ? <p className="mt-3 text-sm text-danger">{syncError}</p> : null}
-        {accessMessage ? <p className="mt-3 text-sm text-sky">{accessMessage}</p> : null}
       </header>
 
       <Tabs defaultValue="details" className="mt-8">
@@ -91,7 +89,7 @@ export function AdminDashboard() {
                           <span className="text-xs text-muted">vs</span>
                           <ParticipantSelect value={match.awayId} options={options} disabled={match.status !== "upcoming" || syncPending} onChange={(awayId) => dispatch({ type: "UPDATE_FIXTURE", matchId: match.id, patch: { awayId } })} />
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="ghost" disabled={syncPending} onClick={() => dispatch({ type: "RESET_MATCH", matchId: match.id })}>Reset</Button><Button size="sm" variant="outline" disabled={syncPending} onClick={() => void adminReleaseMatch(match.id).then(() => setAccessMessage(`${match.id} is available for another umpire.`)).catch((error: unknown) => setAccessMessage(error instanceof Error ? error.message : "Could not release match ownership."))}>Release umpire</Button><Button size="sm" variant="outline" className="border-danger text-danger" disabled={syncPending || match.status !== "upcoming"} onClick={() => dispatch({ type: "DELETE_FIXTURE", matchId: match.id })}>Delete</Button></div>
+                        <div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="ghost" disabled={syncPending} onClick={() => dispatch({ type: "RESET_MATCH", matchId: match.id })}>Reset</Button><Button size="sm" variant="outline" className="border-danger text-danger" disabled={syncPending || match.status !== "upcoming"} onClick={() => dispatch({ type: "DELETE_FIXTURE", matchId: match.id })}>Delete</Button></div>
                       </article>
                     );
                   })}
