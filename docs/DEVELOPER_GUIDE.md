@@ -14,10 +14,9 @@ Supabase stores only mutable shared state:
 
 - `match_states`: scores, games, service, status, history, and bracket advancement.
 - `tournament_config`: admin-edited tournament, teams, players, courts, and byes.
-- `match_leases`: the umpire session that owns each match.
 - `umpire_attempt_windows`: password attempt rate limiting.
 
-Public clients have read-only RLS access. All writes pass through the `umpire` Edge Function, which verifies stateless signed sessions, ownership, roles, and record revisions. Supabase Realtime sends score and configuration updates to connected browsers. Sounds, animations, toast history, notification preferences, and umpire mute preferences stay in the browser. Global sound and animation switches use the existing `tournament_config` JSON record.
+Public clients have read-only RLS access. All writes pass through the `umpire` Edge Function, which verifies stateless signed sessions, roles, and record revisions. Every umpire session can manage any match; the legacy `match_leases` table is unused. Supabase Realtime sends score and configuration updates to connected browsers. Sounds, animations, toast history, notification preferences, and umpire mute preferences stay in the browser. Global sound and animation switches use the existing `tournament_config` JSON record.
 
 ## Run locally
 

@@ -40,13 +40,7 @@ Deno.serve(async (request: Request) => {
 
     if (operation === "claim") {
       if (claims.role === "admin") return json({ ok: true, adminOverride: true });
-      const ok = await rpc<boolean>("claim_match_lease", { p_match_id: matchId, p_umpire_id: claims.sub });
-      return ok ? json({ ok, leaseExpiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString() }) : json({ error: "Only the umpire who started this match can change it. An admin can override it." }, 409);
-    }
-    if (operation === "admin-release") {
-      if (claims.role !== "admin") return json({ error: "An admin session is required." }, 403);
-      const ok = await rpc<boolean>("admin_release_match_lease", { p_match_id: matchId });
-      return json({ ok });
+      return json({ ok: true });
     }
     if (operation === "write") {
       const updates = Array.isArray(body.updates) ? body.updates : [];
@@ -64,7 +58,7 @@ Deno.serve(async (request: Request) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Request failed.";
     if (message.includes("expired") || message.includes("Invalid umpire session")) return json({ error: message }, 401);
-    if (message.includes("Stale match revision") || message.includes("lease expired") || message.includes("belongs to another umpire") || message.includes("umpire who started")) {
+    if (message.includes("Stale match revision")) {
       return json({ error: message }, 409);
     }
     console.error("Umpire function error", message);

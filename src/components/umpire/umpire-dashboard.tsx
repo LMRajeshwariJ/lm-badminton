@@ -24,7 +24,7 @@ export function UmpireDashboard() {
   const router = useRouter();
   const [starting, setStarting] = useState<Match | null>(null);
   const [message, setMessage] = useState("");
-  const [viewOnlyIds, setViewOnlyIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
   const authorized = Boolean(readScoringSession());
 
   async function takeControl(match: Match) {
@@ -34,16 +34,26 @@ export function UmpireDashboard() {
       router.push(`/umpire/match/${match.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not take control of the match.");
-      setViewOnlyIds((current) => new Set(current).add(match.id));
     }
   }
 
+  const query = search.trim().toLocaleLowerCase();
   const categorized = {
     scheduled: state.matches.filter((match) => match.status === "upcoming"),
     live: state.matches.filter((match) => match.status === "live" && !match.paused),
     paused: state.matches.filter((match) => match.status === "live" && match.paused),
     completed: state.matches.filter((match) => match.status === "completed"),
   };
+  const matchesForGroup = (group: (typeof groups)[number]["id"]) => categorized[group]
+    .filter((match) => {
+      if (!query) return true;
+      const teams = state.teams.filter((team) => team.id === match.homeId || team.id === match.awayId);
+      const playerNames = teams.flatMap((team) => state.players.filter((player) => team.playerIds.includes(player.id)).map((player) => player.name));
+      const court = state.courts.find((item) => item.id === match.courtId)?.name ?? "";
+      return [match.id, ...teams.map((team) => team.name), ...playerNames, court].some((value) => value.toLocaleLowerCase().includes(query));
+    })
+    .slice()
+    .sort((a, b) => (a.scheduledAt ?? "").localeCompare(b.scheduledAt ?? ""));
 
   if (!hasSupabaseConfig()) {
     return <SetupNotice />;
@@ -72,38 +82,42 @@ export function UmpireDashboard() {
         </div>
       </header>
       {message || syncError ? <p role="alert" className="mt-5 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{message || syncError}</p> : null}
+      <label className="mt-6 block max-w-xl">
+        <span className="sr-only">Search matches</span>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find by team, player, court, or match ID" className="w-full rounded-2xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-accent" />
+      </label>
       <div className="mt-8 space-y-8">
-        {groups.map((group) => (
-          <section key={group.id}>
+        {groups.map((group) => {
+          const matches = matchesForGroup(group.id);
+          return (
+            <section key={group.id}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-2xl">{group.label}</h2>
-              <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-muted">{categorized[group.id].length}</span>
+              <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-muted">{matches.length}</span>
             </div>
-            {categorized[group.id].length ? (
+            {matches.length ? (
               <div className="grid gap-3 lg:grid-cols-2">
-                {categorized[group.id]
-                  .slice()
-                  .sort((a, b) => (a.scheduledAt ?? "").localeCompare(b.scheduledAt ?? ""))
-                  .map((match) => (
+                {matches.map((match) => (
                     <UmpireMatchCard
                       key={match.id}
                       match={match}
                       onStart={() => setStarting(match)}
                       onTakeControl={() => void takeControl(match)}
-                      viewOnly={viewOnlyIds.has(match.id)}
                     />
                   ))}
               </div>
-            ) : <p className="rounded-2xl border border-dashed border-line px-4 py-5 text-sm text-muted">No matches in this group.</p>}
-          </section>
-        ))}
+            ) : query ? null : <p className="rounded-2xl border border-dashed border-line px-4 py-5 text-sm text-muted">No matches in this group.</p>}
+            </section>
+          );
+        })}
+        {query && !groups.some((group) => matchesForGroup(group.id).length > 0) ? <p className="rounded-2xl border border-dashed border-line px-4 py-5 text-sm text-muted">No matches found. Try a team, player, court, or match ID.</p> : null}
       </div>
       {starting ? <StartMatchDialog match={starting} close={() => setStarting(null)} /> : null}
     </div>
   );
 }
 
-function UmpireMatchCard({ match, onStart, onTakeControl, viewOnly }: { match: Match; onStart: () => void; onTakeControl: () => void; viewOnly: boolean }) {
+function UmpireMatchCard({ match, onStart, onTakeControl }: { match: Match; onStart: () => void; onTakeControl: () => void }) {
   const { state } = useTournament();
   const home = state.teams.find((team) => team.id === match.homeId);
   const away = state.teams.find((team) => team.id === match.awayId);
@@ -135,7 +149,7 @@ function UmpireMatchCard({ match, onStart, onTakeControl, viewOnly }: { match: M
         ) : match.status === "completed" ? (
           <Button asChild variant="outline"><Link href={`/live/${match.id}`}>View result <ArrowRight className="h-4 w-4" /></Link></Button>
         ) : (
-          viewOnly ? <Button asChild variant="outline"><Link href={`/live/${match.id}`}>View match <ArrowRight className="h-4 w-4" /></Link></Button> : <Button onClick={onTakeControl}>{match.paused ? "Resume match" : "Continue scoring"} <ArrowRight className="h-4 w-4" /></Button>
+          <Button onClick={onTakeControl}>{match.paused ? "Resume match" : "Continue scoring"} <ArrowRight className="h-4 w-4" /></Button>
         )}
       </div>
     </article>
