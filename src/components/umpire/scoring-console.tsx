@@ -146,7 +146,7 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
         <MatchResultBanner match={match} winnerName={match.winnerId ? sideName(match, match.winnerId === match.homeId ? "home" : "away", state.teams) : null} nextMatch={nextMatch} syncReady={syncReady} />
         {match.paused ? <div className="mb-4 rounded-2xl border border-sky/30 bg-sky/10 px-4 py-3 text-center font-display text-lg text-sky">Match paused</div> : null}
 
-        <section className="grid gap-3 sm:grid-cols-2">
+        <section className="grid grid-cols-2 gap-2 sm:gap-3">
           <ScorePanel side="home" name={homeName} players={playerLine(home, state.players)} score={game?.home ?? 0} games={wins.home} serving={match.serving === "home"} servingPlayer={match.serving === "home" ? servePlayer : ""} serviceCourt={match.serving === "home" ? serviceCourt : ""} positionNames={positionsNames(match, "home", state.players)} indicator={pointIndicator(match, "home")} animations={state.experienceSettings.animations} />
           <ScorePanel side="away" name={awayName} players={playerLine(away, state.players)} score={game?.away ?? 0} games={wins.away} serving={match.serving === "away"} servingPlayer={match.serving === "away" ? servePlayer : ""} serviceCourt={match.serving === "away" ? serviceCourt : ""} positionNames={positionsNames(match, "away", state.players)} indicator={pointIndicator(match, "away")} animations={state.experienceSettings.animations} />
         </section>
@@ -159,11 +159,11 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
         </div>
 
         {match.status === "live" ? (
-          <section className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Button className="min-h-[5rem] justify-center rounded-2xl text-xl sm:min-h-24 sm:text-2xl" disabled={locked} onClick={() => award("home")}>
+          <section className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
+            <Button className="min-h-[5rem] justify-center rounded-2xl px-2 text-sm leading-tight sm:min-h-24 sm:px-4 sm:text-2xl" disabled={locked} onClick={() => award("home")}>
               +1 · {homeName}<span className="hidden text-sm opacity-70 sm:inline"> · key 1</span>
             </Button>
-            <Button variant="sky" className="min-h-[5rem] justify-center rounded-2xl text-xl sm:min-h-24 sm:text-2xl" disabled={locked} onClick={() => award("away")}>
+            <Button variant="sky" className="min-h-[5rem] justify-center rounded-2xl px-2 text-sm leading-tight sm:min-h-24 sm:px-4 sm:text-2xl" disabled={locked} onClick={() => award("away")}>
               +1 · {awayName}<span className="hidden text-sm opacity-70 sm:inline"> · key 2</span>
             </Button>
           </section>
@@ -195,14 +195,14 @@ export function ScoringConsole({ matchId }: { matchId: string }) {
 
 function ScorePanel({ side, name, players, score, games, serving, servingPlayer, serviceCourt, positionNames, indicator, animations }: { side: Side; name: string; players: string; score: number; games: number; serving: boolean; servingPlayer: string; serviceCourt: string; positionNames: string[]; indicator: string | null; animations: boolean }) {
   return (
-    <article className={`relative overflow-hidden rounded-3xl border p-4 text-center sm:p-6 ${serving ? "border-accent/50 bg-accent/5" : "border-line bg-surface"}`}>
-      <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted"><span>{side === "home" ? "Side A" : "Side B"}</span><span>{games} {games === 1 ? "game" : "games"}</span></div>
-      <h1 className="mt-3 font-display text-2xl tracking-tight sm:text-3xl">{name}</h1>
-      {players ? <p className="mt-1 min-h-5 text-sm text-muted">{players}</p> : <div className="min-h-5" />}
-      <p className={`mt-2 font-display text-[6rem] leading-none tabular-nums sm:text-[8rem] ${serving ? "text-accent" : "text-foreground"}`} aria-label={`${name}: ${score}`}><AnimatedScore value={score} enabled={animations} /></p>
+    <article className={`relative overflow-hidden rounded-3xl border p-3 text-center sm:p-6 ${serving ? "border-accent/50 bg-accent/5" : "border-line bg-surface"}`}>
+      <div className="flex items-center justify-between gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted sm:gap-2 sm:text-xs sm:tracking-[0.16em]"><span>{side === "home" ? "Side A" : "Side B"}</span><span>{games} {games === 1 ? "game" : "games"}</span></div>
+      <h1 className="mt-2 font-display text-lg leading-tight tracking-tight sm:mt-3 sm:text-3xl">{name}</h1>
+      {players ? <p className="mt-1 text-[11px] leading-snug text-muted sm:min-h-5 sm:text-sm">{players}</p> : <div className="min-h-5" />}
+      <p className={`mt-2 font-display text-[4.5rem] leading-none tabular-nums sm:text-[8rem] ${serving ? "text-accent" : "text-foreground"}`} aria-label={`${name}: ${score}`}><AnimatedScore value={score} enabled={animations} /></p>
       {indicator ? <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-sky">{indicator}</p> : null}
-      {serving ? <div className="mt-2 inline-flex max-w-full items-center gap-2 rounded-full bg-accent/15 px-3 py-1.5 text-xs font-semibold text-accent"><Radio className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Serving{servingPlayer ? ` · ${servingPlayer}` : ""}{serviceCourt ? ` · ${serviceCourt}` : ""}</span></div> : <div className="mt-2 min-h-7" />}
-      {positionNames.length === 2 ? <p className="mt-3 text-[11px] text-muted">Right: {positionNames[0]} · Left: {positionNames[1]}</p> : null}
+      {serving ? <div className="mt-2 inline-flex max-w-full items-center gap-1 rounded-full bg-accent/15 px-2 py-1.5 text-[10px] font-semibold leading-tight text-accent sm:gap-2 sm:px-3 sm:text-xs"><Radio className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Serving{servingPlayer ? ` · ${servingPlayer}` : ""}{serviceCourt ? ` · ${serviceCourt}` : ""}</span></div> : <div className="mt-2 min-h-7" />}
+      {positionNames.length === 2 ? <p className="mt-2 text-[10px] leading-tight text-muted sm:mt-3 sm:text-[11px]">Right: {positionNames[0]} · Left: {positionNames[1]}</p> : null}
     </article>
   );
 }

@@ -7,7 +7,7 @@ import { FloatingShuttle } from "@/components/common/shuttle";
 import { MatchCard } from "@/components/scoreboard/match-card";
 import { Button } from "@/components/ui/button";
 import { useTournament } from "@/context/tournament-context";
-import { formatKickoff, formatTournamentDates } from "@/lib/utils";
+import { formatKickoff } from "@/lib/utils";
 
 export function HomePage() {
   const reduce = useReducedMotion();
@@ -40,7 +40,7 @@ export function HomePage() {
             <div className="mt-6 flex flex-wrap gap-3 text-sm text-muted">
               <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5">
                 <CalendarDays className="h-4 w-4 text-accent" />
-                {formatTournamentDates(state.tournament.startDate, state.tournament.endDate)}
+                23 October 2026
               </span>
               <a href={state.tournament.venueUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 hover:border-sky/50 hover:text-foreground">
                 <MapPin className="h-4 w-4 text-sky" />
