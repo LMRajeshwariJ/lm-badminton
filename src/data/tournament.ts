@@ -7,8 +7,8 @@ export const tournament: Tournament = {
   status: "live",
   startDate: "2026-10-23",
   endDate: "2026-10-23",
-  venue: "LM Sports Hall",
-  venueUrl: "https://maps.app.goo.gl/67j1sYXmcc5QL8dp6",
-  city: "Tower B · Level 3",
+  venue: "Sportygen Sports Club",
+  venueUrl: "https://www.google.com/maps/search/?api=1&query=Sportygen+Sports+Club%2C+Pune",
+  city: "Pune",
   description: "Mixed doubles and women's singles.",
 };
